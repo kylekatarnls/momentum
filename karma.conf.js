@@ -1,5 +1,5 @@
 module.exports = config => {
-    config.set({
+    const params = {
         basePath: '',
         frameworks: ['jasmine'],
         files: [
@@ -14,9 +14,21 @@ module.exports = config => {
         preprocessors: {
             'lib/**/*.js': ['coverage']
         },
+        customLaunchers: {
+            ChromeTravisCI: {
+                base: 'Chrome',
+                flags: ['--no-sandbox']
+            }
+        },
         coverageReporter: {
             type : 'html',
             dir : 'coverage/'
         }
-    });
+    };
+
+    if (process.env.TRAVIS) {
+        params.browsers = ['ChromeTravisCI', 'PhantomJS'];
+    }
+
+    config.set(params);
 };
