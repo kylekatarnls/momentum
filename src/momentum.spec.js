@@ -7,7 +7,7 @@ describe('Momentum', () => {
         momentum.adapter.start().then(() => {
             const bob = {
                 name: 'Bob',
-                date: new Date(),
+                date: new Date()
             };
             momentum.adapter.insertOne('users', bob).then(() => {
                 momentum.adapter.find('users', {}).sort({date: -1}).limit(1).toArray((err, users) => {

@@ -3,7 +3,7 @@ module.exports = config => {
         basePath: '',
         frameworks: ['jasmine'],
         files: [
-            'lib/**/*.js',
+            'lib/**/*.js'
         ],
         colors: true,
         singleRun: true,

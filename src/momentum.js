@@ -1,17 +1,25 @@
 const net = require('net');
 const express = require('express');
+const mondogbAdapter = require('./adapter/mongodb');
 const adapters = {
-    mongodb: require('./adapter/mongodb'),
+    mongodb: mondogbAdapter
+};
+const getAdapter = (...args) => {
+    const names = Object.keys(adapters);
+    while (names.length) {
+        const name = names.shift();
+        const AdapterClass = adapters[name];
+        if (AdapterClass.isCompatible(...args)) {
+            return new AdapterClass(...args);
+        }
+    }
+
+    return null;
 };
 
 class Momentum {
     constructor(...args) {
-        for (let name in adapters) {
-            const AdapterClass = adapters[name];
-            if (AdapterClass.isCompatible(...args)) {
-                this.adapter = new AdapterClass(...args);
-            }
-        }
+        this.adapter = getAdapter(...args);
     }
     static addAdapter(name, adapter) {
         adapters[name] = adapter;

@@ -1,0 +1,11 @@
+language: node_js
+
+node_js:
+  - "7"
+
+services:
+  - mongodb
+
+addons:
+  code_climate:
+    repo_token: 456ad90bfb6a7127443d64b5100c75db696e939578004596a8adab9c9c15a1e5
