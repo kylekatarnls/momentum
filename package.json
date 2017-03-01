@@ -1,0 +1,45 @@
+{
+  "name": "momentum-js",
+  "version": "0.0.0",
+  "description": "Instant binding between server and connected clients",
+  "main": "index.js",
+  "scripts": {
+    "test": "karma start && istanbul cover ./node_modules/jasmine/bin/jasmine.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kylekatarnls/momentum.git"
+  },
+  "keywords": [
+    "instant",
+    "binding",
+    "ajax",
+    "real-time"
+  ],
+  "author": "kylekatarnls",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kylekatarnls/momentum/issues"
+  },
+  "homepage": "https://github.com/kylekatarnls/momentum#readme",
+  "engines": {
+    "node": ">=7"
+  },
+  "engineStrict": true,
+  "dependencies": {
+    "express": "^4.14.1",
+    "mongodb": "^2.2.24"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "istanbul": "^0.4.5",
+    "jasmine": "^2.5.3",
+    "jasmine-core": "^2.5.2",
+    "karma": "^1.5.0",
+    "karma-chrome-launcher": "^2.0.0",
+    "karma-coverage": "^1.1.1",
+    "karma-jasmine": "^1.1.0",
+    "karma-phantomjs-launcher": "^1.0.2",
+    "sinon": "^1.17.7"
+  }
+}
