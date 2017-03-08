@@ -4,7 +4,7 @@
   "description": "Instant binding between server and connected clients",
   "main": "index.js",
   "scripts": {
-    "test": "karma start && istanbul cover ./node_modules/jasmine/bin/jasmine.js"
+    "test": "karma start && istanbul cover ./node_modules/jasmine/bin/jasmine.js && ./node_modules/istanbul-merge/bin/istanbul-merge --out coverage.json coverage/coverage.json coverage/front.json"
   },
   "repository": {
     "type": "git",
@@ -33,6 +33,7 @@
   "devDependencies": {
     "chai": "^3.5.0",
     "istanbul": "^0.4.5",
+    "istanbul-merge": "^1.1.1",
     "jasmine": "^2.5.3",
     "jasmine-core": "^2.5.2",
     "karma": "^1.5.0",

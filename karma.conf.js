@@ -21,8 +21,18 @@ module.exports = config => {
             }
         },
         coverageReporter: {
-            type : 'html',
-            dir : 'coverage/'
+            dir : 'coverage/',
+            reporters: [
+                {
+                    type : 'html',
+                    subdir: 'report'
+                },
+                {
+                    type : 'json',
+                    subdir: './',
+                    file: 'front.json'
+                }
+            ]
         }
     };
 
