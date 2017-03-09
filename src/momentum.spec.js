@@ -11,6 +11,7 @@ describe('Momentum', () => {
             };
             momentum.adapter.insertOne('users', bob).then(() => {
                 momentum.adapter.find('users', {}).sort({date: -1}).limit(1).toArray((err, users) => {
+                    expect(err).toBe(null);
                     expect(users.length).toBe(1);
                     expect(users[0].name).toBe('Bob');
                     done();
