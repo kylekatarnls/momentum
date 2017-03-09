@@ -21,15 +21,19 @@ class Momentum {
     constructor(...args) {
         this.adapter = getAdapter(...args);
     }
+
     static addAdapter(name, adapter) {
         adapters[name] = adapter;
     }
+
     linkApplication(app) {
         this.linkedApp = app;
     }
+
     setApplicationPort(appPort) {
         this.appPort = appPort;
     }
+
     start(app = null) {
         let appPort = null;
         if (!isNaN(app)) {

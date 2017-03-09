@@ -76,13 +76,13 @@ describe('MongodbAdapter', () => {
 });
 
 /*
-class MongodbAdapter extends AdapterInterface {
-    updateMany(collection, ...args) {
-        return this.getCollection(collection).updateMany(...args);
-    }
+ class MongodbAdapter extends AdapterInterface {
+ updateMany(collection, ...args) {
+ return this.getCollection(collection).updateMany(...args);
+ }
 
-    remove(collection, ...args) {
-        return this.getCollection(collection).remove(...args);
-    }
-}
-*/
+ remove(collection, ...args) {
+ return this.getCollection(collection).remove(...args);
+ }
+ }
+ */
