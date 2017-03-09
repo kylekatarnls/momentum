@@ -11,19 +11,11 @@ describe('Momentum', () => {
             };
             momentum.adapter.insertOne('users', bob).then(() => {
                 momentum.adapter.find('users', {}).sort({date: -1}).limit(1).toArray((err, users) => {
-                    if (err) {
-                        throw err;
-                    }
-
                     expect(users.length).toBe(1);
                     expect(users[0].name).toBe('Bob');
                     done();
                 });
-            }).catch(err => {
-                throw err;
             });
-        }).catch(err => {
-            throw err;
         });
     });
 });
