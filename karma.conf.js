@@ -28,9 +28,9 @@ module.exports = config => {
                     subdir: 'report'
                 },
                 {
-                    type : 'json',
+                    type : 'lcovonly',
                     subdir: './',
-                    file: 'front.json'
+                    file: 'coverage-front.info'
                 }
             ]
         }
