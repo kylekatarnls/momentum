@@ -71,15 +71,27 @@ describe('Momentum', () => {
 
         expect(momentum.appPort).toBe(22);
     });
-    it('should start and stop successfully with no app', () => {
+    it('should start and stop successfully with no app', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
 
         momentum.start(8091);
         momentum.stop();
         momentum.start(8091);
-        momentum.start(8091);
-        expect(typeof momentum.app.use).toBe('function');
-        momentum.stop();
+        momentum.start(8091).then(() => {
+            expect(typeof momentum.app.use).toBe('function');
+            momentum.stop();
+            done();
+        });
+    });
+    it('should start and stop successfully with an app', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const app = {};
+
+        momentum.start(app).then(() => {
+            expect(momentum.app).toBe(app);
+            momentum.stop();
+            done();
+        });
     });
     it('should handle bad event argument', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
@@ -130,6 +142,25 @@ describe('Momentum', () => {
             });
         });
     });
+    it('should handle array events', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        momentum.start(8091).then(() => {
+
+            let count = 0;
+            momentum.on('foo', () => {
+                count++;
+            });
+            momentum.on(['foo', 'bar'], () => {
+                count++;
+            });
+            momentum.emit('foo');
+            momentum.emit('foo');
+            momentum.emit('bar');
+            expect(count).toBe(5);
+            momentum.stop();
+            done();
+        });
+    });
     it('should handle remove failure', (done) => {
         Momentum.addAdapter('foobar', FoobarAdapter);
         const momentum = new Momentum('foo:bar');
@@ -140,6 +171,7 @@ describe('Momentum', () => {
                 error = err;
             }).then(() => {
                 expect(error + '').toBe('fake-error');
+                momentum.stop();
                 done();
             });
         });

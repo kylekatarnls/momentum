@@ -28,6 +28,7 @@ describe('MongodbAdapter', () => {
     it('should return an id from an item with getItemId', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         expect(mongoAdapter.getItemId({_id: 'foo'})).toBe('foo');
+        expect(mongoAdapter.getItemId(null)).toBe(undefined);
     });
     it('should store and get elements', (done) => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
@@ -55,12 +56,8 @@ describe('MongodbAdapter', () => {
                                                     let d = 0;
                                                     let c = 0;
                                                     objs.forEach(obj => {
-                                                        if (obj.d) {
-                                                            d += obj.d;
-                                                        }
-                                                        if (obj.a) {
-                                                            c += obj.c;
-                                                        }
+                                                        d += obj.d | 0;
+                                                        c += obj.c | 0;
                                                     });
                                                     expect(d).toBe(1);
                                                     expect(c).toBe(12);
