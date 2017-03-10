@@ -7,6 +7,14 @@ class AdapterInterface {
         throw new Error('Adapter should implement start()');
     }
 
+    stop() {
+        throw new Error('Adapter should implement stop()');
+    }
+
+    getItemId() {
+        throw new Error('Adapter should implement getItemId()');
+    }
+
     updateOne() {
         throw new Error('Adapter should implement updateOne()');
     }

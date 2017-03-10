@@ -8,6 +8,7 @@ describe('AdapterInterface', () => {
         expect(BadAdapter.isCompatible).toThrow(new Error('Adapter should implement static isCompatible()'));
         const badAdapter = new BadAdapter();
         expect(badAdapter.start).toThrow(new Error('Adapter should implement start()'));
+        expect(badAdapter.stop).toThrow(new Error('Adapter should implement stop()'));
         expect(badAdapter.updateOne).toThrow(new Error('Adapter should implement updateOne()'));
         expect(badAdapter.updateMany).toThrow(new Error('Adapter should implement updateMany()'));
         expect(badAdapter.count).toThrow(new Error('Adapter should implement count()'));

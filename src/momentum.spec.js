@@ -6,8 +6,25 @@ class FoobarAdapter extends AdapterInterface {
         return url.indexOf('foo:') === 0;
     }
 
+    start() {
+        return new Promise(resove => {
+            resove(true);
+        });
+    }
+
+    stop() {
+    }
+
     getBar() {
         return 42;
+    }
+
+    find() {
+        return {
+            toArray(callback) {
+                callback('fake-error', []);
+            }
+        }
     }
 }
 
@@ -25,6 +42,7 @@ describe('Momentum', () => {
                     expect(err).toBe(null);
                     expect(users.length).toBe(1);
                     expect(users[0].name).toBe('Bob');
+                    momentum.adapter.stop();
                     done();
                 });
             });
@@ -53,11 +71,77 @@ describe('Momentum', () => {
 
         expect(momentum.appPort).toBe(22);
     });
-    it('should start successfully with no app', () => {
+    it('should start and stop successfully with no app', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
 
         momentum.start(8091);
+        momentum.stop();
+        momentum.start(8091);
+        momentum.start(8091);
         expect(typeof momentum.app.use).toBe('function');
-        expect(typeof momentum.server.listen).toBe('function');
+        momentum.stop();
+    });
+    it('should handle bad event argument', () => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+
+        expect(() => momentum.on(null)).toThrow(new Error('event must be a string or an array'));
+    });
+    it('should handle events', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+
+        momentum.start(8091).then(() => {
+            momentum.remove('config', {type: 'main'}).then(() => {
+                const logs = [];
+                momentum.onCollectionTouched('config', type => {
+                    logs.push(type);
+                });
+                const config = {type: 'main', value: 3};
+                momentum.insertOne('config', config).then(() => {
+                    expect(momentum.getItemId(config)).toBeDefined();
+                    momentum.count('config', {type: 'main'}).then(count => {
+                        expect(count).toBe(1);
+                        momentum.find('config', {type: 'main'}).toArray((err, configs) => {
+                            expect(err).toBe(null);
+                            expect(configs.length).toBe(1);
+                            expect(configs[0].value).toBe(3);
+                            const id = configs[0]._id;
+                            let updated = false;
+                            let removed = false;
+                            momentum.onItemUpdate('config', id, () => {
+                                updated = true;
+                            }).onItemRemove('config', id, () => {
+                                removed = true;
+                            });
+                            momentum.updateOne('config', {type: 'main'}, {$set: {value: 5}}).then(() => {
+                                expect(updated).toBe(true);
+                                expect(removed).toBe(false);
+                                momentum.remove('config', {type: 'main'}).then(() => {
+                                    expect(updated).toBe(true);
+                                    expect(removed).toBe(true);
+                                    expect(logs.length).toBe(3);
+                                    expect(logs).toEqual(['insert', 'update-collection', 'remove-collection']);
+                                    momentum.stop();
+                                    done();
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+    it('should handle remove failure', (done) => {
+        Momentum.addAdapter('foobar', FoobarAdapter);
+        const momentum = new Momentum('foo:bar');
+
+        momentum.start(8091).then(() => {
+            let error = null;
+            momentum.remove('foo', {}).catch(err => {
+                error = err;
+            }).then(() => {
+                expect(error + '').toBe('fake-error');
+                done();
+            });
+        });
     });
 });

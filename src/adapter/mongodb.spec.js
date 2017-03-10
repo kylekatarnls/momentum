@@ -1,19 +1,19 @@
 const MongodbAdapter = require('./mongodb');
 
 describe('MongodbAdapter', () => {
-    it('must be compatible only with mongodb', () => {
+    it('should be compatible only with mongodb', () => {
         expect(MongodbAdapter.isCompatible('mongodb://foo')).toBe(true);
         expect(MongodbAdapter.isCompatible('mysql://foo')).toBe(false);
     });
-    it('must be have the url property set to the input', () => {
+    it('should be have the url property set to the input', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         expect(mongoAdapter.url).toBe('mongodb://localhost:27017/momentum');
     });
-    it('must throw an exception if collection name is wrong', () => {
+    it('should throw an exception if collection name is wrong', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         expect(() => mongoAdapter.getCollection(null)).toThrow(new Error('Collection name must be a non-empty string'));
     });
-    it('must reject if start failed', (done) => {
+    it('should reject if start failed', (done) => {
         const mongoAdapter = new MongodbAdapter('mongodb://999.999.999.999:999/momentum');
         let error = null;
         mongoAdapter.start().catch(err => {
@@ -25,7 +25,11 @@ describe('MongodbAdapter', () => {
             done();
         });
     });
-    it('must store and get elements', (done) => {
+    it('should return an id from an item with getItemId', () => {
+        const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
+        expect(mongoAdapter.getItemId({_id: 'foo'})).toBe('foo');
+    });
+    it('should store and get elements', (done) => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         mongoAdapter.start().then(() => {
             mongoAdapter.remove('unitTests', {}).then(status => {
@@ -74,15 +78,3 @@ describe('MongodbAdapter', () => {
         });
     });
 });
-
-/*
- class MongodbAdapter extends AdapterInterface {
- updateMany(collection, ...args) {
- return this.getCollection(collection).updateMany(...args);
- }
-
- remove(collection, ...args) {
- return this.getCollection(collection).remove(...args);
- }
- }
- */
