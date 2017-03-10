@@ -63,8 +63,12 @@ class Momentum {
     }
 
     stop() {
-        this.adapter && this.adapter.stop();
-        this.server && this.server.close();
+        if (this.adapter) {
+            this.adapter.stop();
+        }
+        if (this.server) {
+            this.server.close();
+        }
     }
 
     on(events, ...args) {
@@ -81,6 +85,10 @@ class Momentum {
         return this;
     }
 
+    onEvent(eventKey, eventParam, args) {
+        return this.on(eventTypes[eventKey] + ':' + eventParam, ...args);
+    }
+
     onCollectionTouched(collection, ...args) {
         return this
             .onCollectionUpdate(collection, ...args)
@@ -89,23 +97,23 @@ class Momentum {
     }
 
     onCollectionUpdate(collection, ...args) {
-        return this.on(eventTypes.updateCollection + ':' + collection, ...args);
+        return this.onEvent('updateCollection', collection, args);
     }
 
     onItemUpdate(collection, item, ...args) {
-        return this.on(eventTypes.updateItem + ':' + collection + ':' + item, ...args);
+        return this.onEvent('updateItem', collection + ':' + item, args);
     }
 
     onCollectionRemove(collection, ...args) {
-        return this.on(eventTypes.removeCollection + ':' + collection, ...args);
+        return this.onEvent('removeCollection', collection, args);
     }
 
     onItemRemove(collection, item, ...args) {
-        return this.on(eventTypes.removeItem + ':' + collection + ':' + item, ...args);
+        return this.onEvent('removeItem', collection + ':' + item, args);
     }
 
     onInsert(collection, ...args) {
-        return this.on(eventTypes.insert + ':' + collection, ...args);
+        return this.onEvent('insert', collection, args);
     }
 
     emit(...args) {

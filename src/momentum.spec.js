@@ -50,6 +50,7 @@ describe('Momentum', () => {
     });
     it('should have null adapter with wrong arguments', () => {
         const momentum = new Momentum('foobar');
+        momentum.stop();
 
         expect(momentum.adapter).toBe(null);
     });
@@ -96,7 +97,7 @@ describe('Momentum', () => {
     it('should handle bad event argument', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
 
-        expect(() => momentum.on(null)).toThrow(new Error('event must be a string or an array'));
+        expect(() => momentum.on(false)).toThrow(new Error('event must be a string or an array'));
     });
     it('should handle events', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
