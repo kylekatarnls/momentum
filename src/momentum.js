@@ -34,6 +34,38 @@ class Momentum {
         adapters[name] = adapter;
     }
 
+    static connect(app, ...args) {
+        const momentum = new Momentum(...args);
+
+        return momentum.start(app).then(() => {
+            return momentum;
+        });
+    }
+
+    getAuthorizationStrategy() {
+        return this.authorizationStrategy || (() => {
+            return new Promise(resolve => {
+                resolve(true);
+            });
+        });
+    }
+
+    setAuthorizationStrategy(authorizationStrategy) {
+        return this.authorizationStrategy = authorizationStrategy;
+    }
+
+    isAllowed(method, args, request, response) {
+        return this.getAuthorizationStrategy()(method, args, request, response);
+    }
+
+    setUrlPrefix(urlPrefix) {
+        this.urlPrefix = urlPrefix;
+    }
+
+    getUrlPrefix() {
+        return this.urlPrefix || '/api/mm/';
+    }
+
     linkApplication(app) {
         this.linkedApp = app;
     }
@@ -57,6 +89,13 @@ class Momentum {
 
             return expressApp;
         })();
+        this.app.get(this.getUrlPrefix() + 'on', (request, response) => {
+            response
+                .status(200)
+                .json({
+                    status: 'success'
+                });
+        });
         this.events = new MomentumEventEmitter();
 
         return this.adapter.start();

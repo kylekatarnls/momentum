@@ -54,6 +54,33 @@ describe('Momentum', () => {
 
         expect(momentum.adapter).toBe(null);
     });
+    it('should have an editable url prefix', () => {
+        const momentum = new Momentum('foobar');
+        expect(momentum.getUrlPrefix()).toBe('/api/mm/');
+        momentum.setUrlPrefix('/mm/api/');
+        expect(momentum.getUrlPrefix()).toBe('/mm/api/');
+    });
+    it('should have an editable authorization strategy', (done) => {
+        const momentum = new Momentum('foobar');
+        momentum.isAllowed('a').then(allowed => {
+            expect(allowed).toBe(true);
+            momentum.isAllowed('b').then(allowed => {
+                expect(allowed).toBe(true);
+                momentum.setAuthorizationStrategy(method => {
+                    return new Promise(resolve => {
+                        resolve(method === 'a');
+                    });
+                });
+                momentum.isAllowed('a').then(allowed => {
+                    expect(allowed).toBe(true);
+                    momentum.isAllowed('b').then(allowed => {
+                        expect(allowed).toBe(false);
+                        done();
+                    });
+                });
+            });
+        });
+    });
     it('should handle custom adapter', () => {
         Momentum.addAdapter('foobar', FoobarAdapter);
         const momentum = new Momentum('foo:bar');
@@ -86,7 +113,7 @@ describe('Momentum', () => {
     });
     it('should start and stop successfully with an app', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
-        const app = {};
+        const app = {get() {}};
 
         momentum.start(app).then(() => {
             expect(momentum.app).toBe(app);
@@ -100,9 +127,7 @@ describe('Momentum', () => {
         expect(() => momentum.on(false)).toThrow(new Error('event must be a string or an array'));
     });
     it('should handle events', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
-
-        momentum.start(8091).then(() => {
+        Momentum.connect(8091, 'mongodb://localhost:27017/momentum').then(momentum => {
             momentum.remove('config', {type: 'main'}).then(() => {
                 const logs = [];
                 momentum.onCollectionTouched('config', type => {
