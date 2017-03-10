@@ -35,7 +35,9 @@ class MongodbAdapter extends AdapterInterface {
     }
 
     stop() {
-        this.db && this.db.close();
+        if (this.db) {
+            this.db.close();
+        }
     }
 
     getItemId(item) {
