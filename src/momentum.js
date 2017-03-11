@@ -96,6 +96,13 @@ class Momentum {
                     status: 'success'
                 });
         });
+        this.app.get(this.getUrlPrefix() + 'ready', (request, response) => {
+            response
+                .status(200)
+                .json({
+                    status: 'success'
+                });
+        });
         this.events = new MomentumEventEmitter();
 
         return this.adapter.start();

@@ -93,6 +93,41 @@ describe('Momentum', () => {
 
         expect(momentum.linkedApp.a).toBe(42);
     });
+    it('should listen the /on route', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const app = {
+            routes: {},
+            get(route, callback) {
+                this.routes[route] = callback;
+            },
+            call(route) {
+                return new Promise(resolve => {
+                    this.routes[route]({}, {
+                        status() {
+                            return this;
+                        },
+                        json(data) {
+                            resolve(data);
+
+                            return this;
+                        }
+                    });
+                });
+            }
+        };
+        momentum.start(app).then(() => {
+            app.call('/api/mm/on').then(result => {
+                expect(typeof result).toBe('object');
+                expect(result.status).toBe('success');
+                app.call('/api/mm/ready').then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.status).toBe('success');
+                    done();
+                });
+            });
+        });
+
+    });
     it('should have a port setting editable', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
         momentum.setApplicationPort(22);
