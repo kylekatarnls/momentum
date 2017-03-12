@@ -44,6 +44,10 @@ class MongodbAdapter extends AdapterInterface {
         return (item || {})._id;
     }
 
+    getFilterFromItemId(id) {
+        return {_id: id};
+    }
+
     count(collection, ...args) {
         return this.getCollection(collection).count(...args);
     }

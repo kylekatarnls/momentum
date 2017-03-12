@@ -182,7 +182,8 @@ describe('Momentum', () => {
                             let removed = false;
                             momentum.onItemUpdate('config', id, () => {
                                 updated = true;
-                            }).onItemRemove('config', id, () => {
+                            });
+                            momentum.onItemRemove('config', id, () => {
                                 removed = true;
                             });
                             momentum.updateOne('config', {type: 'main'}, {$set: {value: 5}}).then(() => {

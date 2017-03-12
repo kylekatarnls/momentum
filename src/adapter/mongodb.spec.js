@@ -30,6 +30,10 @@ describe('MongodbAdapter', () => {
         expect(mongoAdapter.getItemId({_id: 'foo'})).toBe('foo');
         expect(mongoAdapter.getItemId(null)).toBe(undefined);
     });
+    it('should return a filter from an item id with getFilterFromItemId', () => {
+        const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
+        expect(mongoAdapter.getFilterFromItemId('foo')).toEqual({_id: 'foo'});
+    });
     it('should store and get elements', (done) => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         mongoAdapter.start().then(() => {

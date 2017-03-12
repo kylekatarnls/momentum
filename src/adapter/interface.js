@@ -15,6 +15,10 @@ class AdapterInterface {
         throw new Error('Adapter should implement getItemId()');
     }
 
+    getFilterFromItemId() {
+        throw new Error('Adapter should implement getFilterFromItemId()');
+    }
+
     updateOne() {
         throw new Error('Adapter should implement updateOne()');
     }

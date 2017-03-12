@@ -10,6 +10,7 @@ describe('AdapterInterface', () => {
         expect(badAdapter.start).toThrow(new Error('Adapter should implement start()'));
         expect(badAdapter.stop).toThrow(new Error('Adapter should implement stop()'));
         expect(badAdapter.getItemId).toThrow(new Error('Adapter should implement getItemId()'));
+        expect(badAdapter.getFilterFromItemId).toThrow(new Error('Adapter should implement getFilterFromItemId()'));
         expect(badAdapter.updateOne).toThrow(new Error('Adapter should implement updateOne()'));
         expect(badAdapter.updateMany).toThrow(new Error('Adapter should implement updateMany()'));
         expect(badAdapter.count).toThrow(new Error('Adapter should implement count()'));
