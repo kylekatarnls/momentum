@@ -68,13 +68,9 @@ module.exports = config => {
                         .status(200)
                         .json(request.body);
                 });
-                Momentum.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
-                    // momentum.setAuthorizationStrategy((method, args, request, response) => {
-                    //     console.log('foo')
-                    // });
-                });
+                Momentum.connect(app, 'mongodb://localhost:27017/momentum');
             }
-        },
+        }
     };
 
     if (process.env.TRAVIS) {

@@ -1,6 +1,47 @@
 const AdapterInterface = require('./adapter/interface');
 const Momentum = require('./momentum');
 
+const emulateApp = () => ({
+    token: null,
+    getRoutes: {},
+    postRoutes: {},
+    get(route, callback) {
+        this.getRoutes[route] = callback;
+    },
+    post(route, parser, callback = null) {
+        this.postRoutes[route] = callback || parser;
+    },
+    call(method, route, body = {}) {
+        body.token = this.token;
+        const app = this;
+
+        return new Promise(resolve => {
+            this[method + 'Routes'][route]({
+                headers: {},
+                connection: {
+                    remoteAddress: '127.0.0.1'
+                },
+                body,
+                query: body
+            }, {
+                status() {
+                    return this;
+                },
+                json(data) {
+                    data = JSON.parse(JSON.stringify(data));
+                    if (data.token) {
+                        app.token = data.token;
+                    }
+
+                    resolve(data);
+
+                    return this;
+                }
+            });
+        });
+    }
+});
+
 class FoobarAdapter extends AdapterInterface {
     static isCompatible(url) {
         return url.indexOf('foo:') === 0;
@@ -95,45 +136,7 @@ describe('Momentum', () => {
     });
     it('should listen the /on route', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
-        const app = {
-            token: null,
-            getRoutes: {},
-            postRoutes: {},
-            get(route, callback) {
-                this.getRoutes[route] = callback;
-            },
-            post(route, parser, callback = null) {
-                this.postRoutes[route] = callback || parser;
-            },
-            call(method, route, body = {}) {
-                body.token = this.token;
-
-                return new Promise(resolve => {
-                    this[method + 'Routes'][route]({
-                        headers: {},
-                        connection: {
-                            remoteAddress: '127.0.0.1'
-                        },
-                        body,
-                        query: body
-                    }, {
-                        status() {
-                            return this;
-                        },
-                        json(data) {
-                            data = JSON.parse(JSON.stringify(data));
-                            if (data.token) {
-                                app.token = data.token;
-                            }
-
-                            resolve(data);
-
-                            return this;
-                        }
-                    });
-                });
-            }
-        };
+        const app = emulateApp();
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(result => {
                 expect(typeof result).toBe('object');
@@ -177,45 +180,7 @@ describe('Momentum', () => {
                 resolve(...args);
             });
         });
-        const app = {
-            token: null,
-            getRoutes: {},
-            postRoutes: {},
-            get(route, callback) {
-                this.getRoutes[route] = callback;
-            },
-            post(route, parser, callback = null) {
-                this.postRoutes[route] = callback || parser;
-            },
-            call(method, route, body = {}) {
-                body.token = this.token;
-
-                return new Promise(resolve => {
-                    this[method + 'Routes'][route]({
-                        headers: {},
-                        connection: {
-                            remoteAddress: '127.0.0.1'
-                        },
-                        body,
-                        query: body
-                    }, {
-                        status() {
-                            return this;
-                        },
-                        json(data) {
-                            data = JSON.parse(JSON.stringify(data));
-                            if (data.token) {
-                                app.token = data.token;
-                            }
-
-                            resolve(data);
-
-                            return this;
-                        }
-                    });
-                });
-            }
-        };
+        const app = emulateApp();
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(() => {
                 app.call('post', '/api/mm/listen', {

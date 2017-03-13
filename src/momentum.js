@@ -247,9 +247,7 @@ class Momentum {
                 const check = () => {
                     setTimeout(() => {
                         this.isTokenValid(token).then(valid => {
-                            valid ?
-                                check() :
-                                off();
+                            (valid ? check : off)();
                         });
                     }, this.options.timeOut);
                 };
