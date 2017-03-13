@@ -1,6 +1,47 @@
 const AdapterInterface = require('./adapter/interface');
 const Momentum = require('./momentum');
 
+const emulateApp = () => ({
+    token: null,
+    getRoutes: {},
+    postRoutes: {},
+    get(route, callback) {
+        this.getRoutes[route] = callback;
+    },
+    post(route, parser, callback = null) {
+        this.postRoutes[route] = callback || parser;
+    },
+    call(method, route, body = {}) {
+        body.token = this.token;
+        const app = this;
+
+        return new Promise(resolve => {
+            this[method + 'Routes'][route]({
+                headers: {},
+                connection: {
+                    remoteAddress: '127.0.0.1'
+                },
+                body,
+                query: body
+            }, {
+                status() {
+                    return this;
+                },
+                json(data) {
+                    data = JSON.parse(JSON.stringify(data));
+                    if (data.token) {
+                        app.token = data.token;
+                    }
+
+                    resolve(data);
+
+                    return this;
+                }
+            });
+        });
+    }
+});
+
 class FoobarAdapter extends AdapterInterface {
     static isCompatible(url) {
         return url.indexOf('foo:') === 0;
@@ -29,6 +70,24 @@ class FoobarAdapter extends AdapterInterface {
 }
 
 describe('Momentum', () => {
+    it('should invalidate tokens on invalidateTokens call', (done) => {
+        Momentum.connect(8091, 'mongodb://localhost:27017/momentum').then(momentum => {
+            momentum.options.collectionPrefix = 'aa';
+            const tokens = 'aa' + 'tokens';
+            momentum.insertOne(tokens, {ip: 'aa'}).then(() => {
+                momentum.count(tokens, {ip: 'aa'}).then(count => {
+                    expect(count).toBe(1);
+                    momentum.invalidateTokens({ip: {$in: ['aa', '127.0.0.1']}}).then(() => {
+                        momentum.count(tokens, {ip: 'aa'}).then(count => {
+                            expect(count).toBe(0);
+                            momentum.stop();
+                            done();
+                        });
+                    });
+                });
+            });
+        });
+    });
     it('should start successfully with mongodb', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
 
@@ -95,38 +154,142 @@ describe('Momentum', () => {
     });
     it('should listen the /on route', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
-        const app = {
-            routes: {},
-            get(route, callback) {
-                this.routes[route] = callback;
-            },
-            call(route) {
-                return new Promise(resolve => {
-                    this.routes[route]({}, {
-                        status() {
-                            return this;
-                        },
-                        json(data) {
-                            resolve(data);
-
-                            return this;
-                        }
-                    });
-                });
-            }
-        };
+        const app = emulateApp();
         momentum.start(app).then(() => {
-            app.call('/api/mm/on').then(result => {
+            app.call('get', '/api/mm/ready').then(result => {
                 expect(typeof result).toBe('object');
                 expect(result.status).toBe('success');
-                app.call('/api/mm/ready').then(result => {
+                app.call('get', '/api/mm/on').then(result => {
                     expect(typeof result).toBe('object');
-                    expect(result.status).toBe('success');
+                    expect(typeof result.events).toBe('object');
+                    expect(typeof result.events[0]).toBe('object');
+                    expect(typeof result.events[0].args).toBe('object');
+                    expect(result.events[0].args[1]).toBe('insertOne');
+                    expect(typeof result.events[0].args[3]).toBe('object');
+                    expect(result.events[0].args[3].a).toBe(1);
+                    done();
+                });
+                setTimeout(() => {
+                    app.call('post', '/api/mm/listen', {
+                        collection: 'config'
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.status).toBe('success');
+                    });
+                    app.call('post', '/api/mm/emit', {
+                        method: 'insertOne',
+                        args: ['config', {a: 1}]
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result).toEqual({n: 1, ok: 1});
+                    });
+                }, 500);
+            });
+        });
+    });
+    it('should wait for ready on the /ready route', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        let outsideCalled = false;
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                setTimeout(() => {
+                    expect(outsideCalled).toBe(true);
+                    done();
+                }, 200);
+            });
+        });
+        app.call('get', '/api/mm/ready').then(() => {
+            outsideCalled = true;
+        });
+    });
+    it('should wait until timeout', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        momentum.options.timeOut = 500;
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/on').then(result => {
+                expect(typeof result).toBe('object');
+                expect(result.events).toEqual([]);
+                done();
+            });
+        });
+    });
+    it('should check token', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                app.token = 'wrong';
+                app.call('post', '/api/mm/listen', {
+                    collection: 'foo'
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.error).toBe('Invalid token wrong');
                     done();
                 });
             });
         });
+    });
+    it('should allow custom filters', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        momentum.addFilter('foo', (...args) => {
+            return new Promise(resolve => {
+                if (typeof args[0] === 'object' && typeof args[0][3] === 'object') {
+                    args[0][3].a++;
+                }
 
+                resolve(...args);
+            });
+        });
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                app.call('post', '/api/mm/listen', {
+                    collection: 'config',
+                    filter: 'bar'
+                }).then(result => {
+                    expect(result.error).toBe('Unknown filter bar');
+                    app.call('post', '/api/mm/listen', {
+                        filter: 'foo'
+                    }).then(result => {
+                        expect(result.error).toBe('Missing collection name');
+                        app.call('get', '/api/mm/on').then(result => {
+                            expect(result.events[0].args[3].a).toBe(2);
+                            done();
+                        });
+                        setTimeout(() => {
+                            app.call('post', '/api/mm/listen', {
+                                collection: 'config',
+                                filter: 'foo'
+                            });
+                            app.call('post', '/api/mm/emit', {
+                                method: 'insertOne',
+                                args: ['config', {a: 1}]
+                            });
+                        }, 500);
+                    });
+                });
+            });
+        });
+    });
+    it('should handle connections overflow', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        momentum.options.maxTokensPerIp = 3;
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                app.call('get', '/api/mm/ready').then(() => {
+                    app.call('get', '/api/mm/ready').then(() => {
+                        app.call('get', '/api/mm/ready').then(result => {
+                            expect(typeof result).toBe('object');
+                            expect(result.error).toBe('Too many connections');
+                            done();
+                        });
+                    });
+                });
+            });
+        });
     });
     it('should have a port setting editable', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
@@ -148,7 +311,7 @@ describe('Momentum', () => {
     });
     it('should start and stop successfully with an app', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
-        const app = {get() {}};
+        const app = {get() {}, post () {}};
 
         momentum.start(app).then(() => {
             expect(momentum.app).toBe(app);
@@ -219,6 +382,41 @@ describe('Momentum', () => {
             momentum.emit('foo');
             momentum.emit('bar');
             expect(count).toBe(5);
+            momentum.stop();
+            done();
+        });
+    });
+    it('should handle grouped events', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        momentum.start(8091).then(() => {
+            let count = 0;
+            const offCollection = momentum.onCollectionTouched('foo', () => {
+                count++;
+            });
+            const offItem = momentum.onItemTouched('foo', '1', () => {
+                count++;
+            });
+            momentum.emitEvent('updateCollection', 'foo');
+            momentum.emitEvent('updateCollection', 'bar');
+            momentum.emitEvent('removeCollection', 'foo');
+            momentum.emitEvent('insert', 'foo');
+            expect(count).toBe(3);
+            offCollection();
+            count = 0;
+            momentum.emitEvent('updateCollection', 'foo');
+            momentum.emitEvent('removeCollection', 'foo');
+            momentum.emitEvent('insert', 'foo');
+            expect(count).toBe(0);
+            count = 0;
+            momentum.emitEvent('updateItem', 'foo:1');
+            momentum.emitEvent('removeItem', 'foo:1');
+            momentum.emitEvent('removeItem', 'foo:2');
+            expect(count).toBe(2);
+            offItem();
+            count = 0;
+            momentum.emitEvent('updateItem', 'foo:1');
+            momentum.emitEvent('removeItem', 'foo:1');
+            expect(count).toBe(0);
             momentum.stop();
             done();
         });

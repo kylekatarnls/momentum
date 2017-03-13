@@ -72,7 +72,9 @@ class Momentum {
     }
 
     setAuthorizationStrategy(authorizationStrategy) {
-        return this.authorizationStrategy = authorizationStrategy;
+        this.authorizationStrategy = authorizationStrategy;
+
+        return this;
     }
 
     isAllowed(mode, method, args, request, response) {
@@ -95,6 +97,11 @@ class Momentum {
         this.appPort = appPort;
     }
 
+    invalidateTokens(filter) {
+        const tokens = this.options.collectionPrefix + 'tokens';
+        return this.remove(tokens, filter);
+    }
+
     isTokenValid(token) {
         const tokens = this.options.collectionPrefix + 'tokens';
         return this.count(tokens, {token}).then(count => {
@@ -102,21 +109,7 @@ class Momentum {
         });
     }
 
-    start(app = null) {
-        let appPort = null;
-        if (!isNaN(app)) {
-            appPort = app;
-            app = null;
-        }
-        this.stop();
-        this.setApplicationPort(appPort);
-        this.linkApplication(app);
-        this.app = this.linkedApp || (() => {
-            const expressApp = express();
-            this.server = expressApp.listen(this.appPort);
-
-            return expressApp;
-        })();
+    addReadyRoute() {
         this.app.get(this.getUrlPrefix() + 'ready', (request, response) => {
             const readyCallback = () => {
                 const ip = getIpFromRequest(request);
@@ -156,11 +149,14 @@ class Momentum {
                 return;
             }
 
-            const readyPromise = new Promise();
+            const readyPromise = new Promise(resolve => {
+                this.readyPromises.push(resolve);
+            });
             readyPromise.then(readyCallback);
-
-            this.readyPromises.push(readyPromise);
         });
+    }
+
+    addOnRoute() {
         this.app.get(this.getUrlPrefix() + 'on', (request, response) => {
             let end;
             let timeout = setTimeout(() => {
@@ -201,6 +197,9 @@ class Momentum {
                 setTimeout(off, this.options.timeOut / 4);
             };
         });
+    }
+
+    addListenRoute() {
         this.app.post(this.getUrlPrefix() + 'listen', bodyParser.json(), (request, response) => {
             const token = request.body.token;
             const collection = request.body.collection;
@@ -214,25 +213,28 @@ class Momentum {
             this.isTokenValid(token).then(valid => {
                 if (!valid) {
                     response.status(500).json({
-                        error: 'Invalid token'
+                        error: 'Invalid token ' + token
                     });
 
                     return;
                 }
 
                 const filter = request.body.filter;
-                let off;
-                const listener = function (...args) {
-                    if (!filter) {
-                        this.emit('listen:' + token, ...args);
-
-                        return;
-                    }
-                    const handler = this.getFilter(filter);
+                let handler;
+                if (filter) {
+                    handler = this.getFilter(filter);
                     if (!handler) {
                         response.status(400).json({
                             error: 'Unknown filter ' + filter
                         });
+
+                        return;
+                    }
+                }
+                let off;
+                const listener = (...args) => {
+                    if (!filter) {
+                        this.emit('listen:' + token, ...args);
 
                         return;
                     }
@@ -244,9 +246,7 @@ class Momentum {
                 const check = () => {
                     setTimeout(() => {
                         this.isTokenValid(token).then(valid => {
-                            valid ?
-                                check() :
-                                off();
+                            (valid ? check : off)();
                         });
                     }, this.options.timeOut);
                 };
@@ -263,6 +263,9 @@ class Momentum {
                 response.status(200).json({status: 'success'});
             });
         });
+    }
+
+    addEmitRoute() {
         this.app.post(this.getUrlPrefix() + 'emit', bodyParser.json(), (request, response) => {
             const method = request.body.method;
             const args = request.body.args;
@@ -288,12 +291,33 @@ class Momentum {
                 response.status(500).json({error});
             });
         });
+    }
+
+    start(app = null) {
+        let appPort = null;
+        if (!isNaN(app)) {
+            appPort = app;
+            app = null;
+        }
+        this.stop();
+        this.setApplicationPort(appPort);
+        this.linkApplication(app);
+        this.app = this.linkedApp || (() => {
+            const expressApp = express();
+            this.server = expressApp.listen(this.appPort);
+
+            return expressApp;
+        })();
+        this.addReadyRoute();
+        this.addOnRoute();
+        this.addListenRoute();
+        this.addEmitRoute();
         this.events = new MomentumEventEmitter();
         const start = this.adapter.start();
         start.then(() => {
             this.isReady = true;
             this.readyPromises.forEach(promise => {
-                promise.resolve();
+                promise();
             });
             this.readyPromises = [];
         });
@@ -378,6 +402,12 @@ class Momentum {
         return this.events.emit(...args);
     }
 
+    emitEvent(eventKey, eventParam, ...args) {
+        const event = eventTypes[eventKey];
+
+        return this.emit(event + ':' + eventParam, event, ...args);
+    }
+
     remove(collection, filter, options) {
         return new Promise((resolve, reject) => {
             this.find(collection, filter).toArray((err, objs) => {
@@ -391,11 +421,11 @@ class Momentum {
                 const promise = this.adapter.remove(collection, filter, options);
                 promise.then(result => {
                     const args = ['remove', collection, ids, filter, result];
-                    this.emit(eventTypes.removeCollection + ':' + collection, eventTypes.removeCollection, ...args);
+                    this.emitEvent('removeCollection', collection, ...args);
                     ids.forEach(id => {
                         const itemArgs = args.slice();
                         itemArgs[2] = id;
-                        this.emit(eventTypes.removeItem + ':' + collection + ':' + id, eventTypes.removeItem, ...itemArgs);
+                        this.emitEvent('removeItem', collection + ':' + id, ...itemArgs);
                     });
                 });
 
@@ -408,7 +438,7 @@ class Momentum {
         const promise = this.adapter.insertOne(collection, document, options);
         promise.then(result => {
             const args = ['insertOne', collection, document, result];
-            this.emit(eventTypes.insert + ':' + collection, eventTypes.insert, ...args);
+            this.emitEvent('insert', collection, ...args);
         });
 
         return promise;
@@ -420,8 +450,8 @@ class Momentum {
             const promise = this.adapter.updateOne(collection, filter, update, options);
             promise.then(result => {
                 const args = ['updateOne', collection, obj, id, filter, update, result];
-                this.emit(eventTypes.updateCollection + ':' + collection, eventTypes.updateCollection, ...args);
-                this.emit(eventTypes.updateItem + ':' + collection + ':' + id, eventTypes.updateItem, ...args);
+                this.emitEvent('updateCollection', collection, ...args);
+                this.emitEvent('updateItem', collection + ':' + id, ...args);
             });
 
             return promise;
