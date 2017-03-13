@@ -37,9 +37,12 @@
             momentum.listenCollection('people');
         });
         var off = momentum.on(function () {
-            document.getElementById('log').innerHTML += [].map.call(arguments, function (arg) {
-                return JSON.stringify(arg);
-            }).join(', ') + '\n';
+            document.getElementById('log').innerHTML += [].map.call(arguments, function (data) {
+                return data.events.length + 'new events:\n' +
+                    data.events.map(function (event) {
+                        return event.args[3].name + '\n';
+                    }).join('') + '\n';
+            }).join('');
         });
         var add = function () {
             var name = document.getElementById('name').value;
