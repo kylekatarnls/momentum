@@ -72,7 +72,9 @@ class Momentum {
     }
 
     setAuthorizationStrategy(authorizationStrategy) {
-        return this.authorizationStrategy = authorizationStrategy;
+        this.authorizationStrategy = authorizationStrategy;
+
+        return this;
     }
 
     isAllowed(mode, method, args, request, response) {
