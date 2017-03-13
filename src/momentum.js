@@ -214,25 +214,28 @@ class Momentum {
             this.isTokenValid(token).then(valid => {
                 if (!valid) {
                     response.status(500).json({
-                        error: 'Invalid token'
+                        error: 'Invalid token ' + token
                     });
 
                     return;
                 }
 
                 const filter = request.body.filter;
-                let off;
-                const listener = function (...args) {
-                    if (!filter) {
-                        this.emit('listen:' + token, ...args);
-
-                        return;
-                    }
-                    const handler = this.getFilter(filter);
+                let handler;
+                if (filter) {
+                    handler = this.getFilter(filter);
                     if (!handler) {
                         response.status(400).json({
                             error: 'Unknown filter ' + filter
                         });
+
+                        return;
+                    }
+                }
+                let off;
+                const listener = (...args) => {
+                    if (!filter) {
+                        this.emit('listen:' + token, ...args);
 
                         return;
                     }

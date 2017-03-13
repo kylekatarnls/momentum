@@ -96,17 +96,36 @@ describe('Momentum', () => {
     it('should listen the /on route', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
         const app = {
-            routes: {},
+            token: null,
+            getRoutes: {},
+            postRoutes: {},
             get(route, callback) {
-                this.routes[route] = callback;
+                this.getRoutes[route] = callback;
             },
-            call(route) {
+            post(route, parser, callback = null) {
+                this.postRoutes[route] = callback || parser;
+            },
+            call(method, route, body = {}) {
+                body.token = this.token;
+
                 return new Promise(resolve => {
-                    this.routes[route]({}, {
+                    this[method + 'Routes'][route]({
+                        headers: {},
+                        connection: {
+                            remoteAddress: '127.0.0.1'
+                        },
+                        body,
+                        query: body
+                    }, {
                         status() {
                             return this;
                         },
                         json(data) {
+                            data = JSON.parse(JSON.stringify(data));
+                            if (data.token) {
+                                app.token = data.token;
+                            }
+
                             resolve(data);
 
                             return this;
@@ -116,17 +135,116 @@ describe('Momentum', () => {
             }
         };
         momentum.start(app).then(() => {
-            app.call('/api/mm/on').then(result => {
+            app.call('get', '/api/mm/ready').then(result => {
                 expect(typeof result).toBe('object');
                 expect(result.status).toBe('success');
-                app.call('/api/mm/ready').then(result => {
+                app.call('get', '/api/mm/on').then(result => {
                     expect(typeof result).toBe('object');
-                    expect(result.status).toBe('success');
+                    expect(typeof result.events).toBe('object');
+                    expect(typeof result.events[0]).toBe('object');
+                    expect(typeof result.events[0].args).toBe('object');
+                    expect(result.events[0].args[1]).toBe('insertOne');
+                    expect(typeof result.events[0].args[3]).toBe('object');
+                    expect(result.events[0].args[3].a).toBe(1);
                     done();
+                });
+                setTimeout(() => {
+                    app.call('post', '/api/mm/listen', {
+                        collection: 'config'
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.status).toBe('success');
+                    });
+                    app.call('post', '/api/mm/emit', {
+                        method: 'insertOne',
+                        args: ['config', {a: 1}]
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result).toEqual({n: 1, ok: 1});
+                    });
+                }, 500);
+            });
+        });
+    });
+    it('should allow custom filters', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        momentum.addFilter('foo', (...args) => {
+            return new Promise(resolve => {
+                if (typeof args[0] === 'object' && typeof args[0][3] === 'object') {
+                    args[0][3].a++;
+                }
+
+                resolve(...args);
+            });
+        });
+        const app = {
+            token: null,
+            getRoutes: {},
+            postRoutes: {},
+            get(route, callback) {
+                this.getRoutes[route] = callback;
+            },
+            post(route, parser, callback = null) {
+                this.postRoutes[route] = callback || parser;
+            },
+            call(method, route, body = {}) {
+                body.token = this.token;
+
+                return new Promise(resolve => {
+                    this[method + 'Routes'][route]({
+                        headers: {},
+                        connection: {
+                            remoteAddress: '127.0.0.1'
+                        },
+                        body,
+                        query: body
+                    }, {
+                        status() {
+                            return this;
+                        },
+                        json(data) {
+                            data = JSON.parse(JSON.stringify(data));
+                            if (data.token) {
+                                app.token = data.token;
+                            }
+
+                            resolve(data);
+
+                            return this;
+                        }
+                    });
+                });
+            }
+        };
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                app.call('post', '/api/mm/listen', {
+                    collection: 'config',
+                    filter: 'bar'
+                }).then(result => {
+                    expect(result.error).toBe('Unknown filter bar');
+                    app.call('post', '/api/mm/listen', {
+                        filter: 'foo'
+                    }).then(result => {
+                        expect(result.error).toBe('Missing collection name');
+                        app.call('get', '/api/mm/on').then(result => {
+                            expect(result.events[0].args[3].a).toBe(2);
+                            done();
+                        });
+                        setTimeout(() => {
+                            app.call('post', '/api/mm/listen', {
+                                collection: 'config',
+                                filter: 'foo'
+                            });
+                            app.call('post', '/api/mm/emit', {
+                                method: 'insertOne',
+                                args: ['config', {a: 1}]
+                            });
+                        }, 500);
+                    });
                 });
             });
         });
-
     });
     it('should have a port setting editable', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
@@ -148,7 +266,7 @@ describe('Momentum', () => {
     });
     it('should start and stop successfully with an app', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
-        const app = {get() {}};
+        const app = {get() {}, post () {}};
 
         momentum.start(app).then(() => {
             expect(momentum.app).toBe(app);
