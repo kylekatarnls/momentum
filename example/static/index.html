@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Example</title>
+    <style>
+        * {
+            font-family: sans-serif;
+        }
+        .block {
+            margin: 15px;
+            padding: 15px;
+            border: 1px solid #dcdcdc;
+            background: #eeeeee;
+        }
+    </style>
+</head>
+<body>
+    <div id="status" class="block">Loading</div>
+    <pre id="add-callback" class="block"></pre>
+    <pre id="log" class="block"></pre>
+    <form class="block">
+        <label>Add a person: <input type="text" id="name"></label>
+        <input type="button" value="Add" onclick="add()">
+    </form>
+    <form class="block">
+        <input type="button" value="Stop momentum listener" onclick="off()">
+    </form>
+    <script src="momentum.js"></script>
+    <script>
+        var momentum = new Momentum();
+        momentum.onReady(function () {
+            document.getElementById('status').innerHTML = 'ready';
+            momentum.listenCollection('people');
+        });
+        var off = momentum.on(function () {
+            document.getElementById('log').innerHTML += [].map.call(arguments, function (arg) {
+                return JSON.stringify(arg);
+            }).join(', ') + '\n';
+        });
+        var add = function () {
+            var name = document.getElementById('name').value;
+            momentum.insertOne(['people', {name: name}], function (data) {
+                document.getElementById('add-callback').innerHTML += JSON.stringify(data) + '\n';
+            });
+        };
+    </script>
+</body>
+</html>
