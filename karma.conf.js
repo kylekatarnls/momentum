@@ -75,7 +75,9 @@ module.exports = config => {
                         response.status(200).json(request[methods[method]]);
                     });
                 });
-                Momentum.connect(app, 'mongodb://localhost:27017/momentum');
+                Momentum.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
+                    momentum.invalidateTokens({ip: {$in: ['::1', '127.0.0.1']}});
+                });
             }
         }
     };
