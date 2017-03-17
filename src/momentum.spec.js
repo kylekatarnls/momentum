@@ -8,8 +8,8 @@ const emulateApp = () => ({
     get(route, callback) {
         this.getRoutes[route] = callback;
     },
-    post(route, parser, callback = null) {
-        this.postRoutes[route] = callback || parser;
+    post(route, ...callbacks) {
+        this.postRoutes[route] = callbacks.pop();
     },
     call(method, route, body = {}) {
         body.token = this.token;
@@ -187,6 +187,56 @@ describe('Momentum', () => {
             });
         });
     });
+    it('should handle errors on /emit route', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('post', '/api/mm/emit', {
+                method: 'insertFoo',
+                args: ['config', {a: 1}]
+            }).then(result => {
+                expect(typeof result).toBe('object');
+                expect(result).toEqual({error: 'insertFoo method unknown'});
+                done();
+            });
+        });
+    });
+    it('should handle authorization strategy', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.setAuthorizationStrategy((mode, method, args) => {
+            return !args[1].voldemort;
+        });
+        momentum.start(app).then(() => {
+            app.call('post', '/api/mm/emit', {
+                method: 'insertOne',
+                args: ['magicians', {voldemort: 1}]
+            }).then(result => {
+                expect(typeof result).toBe('object');
+                expect(result).toEqual({error: 'insertOne not allowed with ["magicians",{"voldemort":1}]'});
+                done();
+            });
+        });
+    });
+    it('should handle db errors', (done) => {
+        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            const harry = {name: 'Harry'};
+            momentum.remove('magicians', harry).then(() => {
+                momentum.insertOne('magicians', harry).then(() => {
+                    app.call('post', '/api/mm/emit', {
+                        method: 'insertOne',
+                        args: ['magicians', harry]
+                    }).catch(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.error.message).toContain('duplicate');
+                        done();
+                    });
+                });
+            });
+        });
+    });
     it('should wait for ready on the /ready route', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
         const app = emulateApp();
@@ -235,9 +285,7 @@ describe('Momentum', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
         momentum.addFilter('foo', (...args) => {
             return new Promise(resolve => {
-                if (typeof args[0] === 'object' && typeof args[0][3] === 'object') {
-                    args[0][3].a++;
-                }
+                args[0][3].a++;
 
                 resolve(...args);
             });
