@@ -228,7 +228,7 @@ describe('Momentum', () => {
                     app.call('post', '/api/mm/emit', {
                         method: 'insertOne',
                         args: ['magicians', harry]
-                    }).catch(result => {
+                    }).then(result => {
                         expect(typeof result).toBe('object');
                         expect(result.error.message).toContain('duplicate');
                         done();
