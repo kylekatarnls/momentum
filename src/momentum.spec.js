@@ -231,7 +231,10 @@ describe('Momentum', () => {
                     }).then(result => {
                         expect(typeof result).toBe('object');
                         expect(result.error.message).toContain('duplicate');
-                        done();
+                        momentum.remove('magicians', {name: 'Harry'}).then(() => {
+                            momentum.stop();
+                            done();
+                        });
                     });
                 });
             });
