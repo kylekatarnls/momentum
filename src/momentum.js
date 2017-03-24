@@ -288,10 +288,8 @@ class Momentum {
                 return;
             }
 
-            this[method](...args).then(result => {
-                response.status(200).json(result);
-            }).catch(error => {
-                response.status(500).json({error});
+            this[method](...args).catch(error => ({error})).then(result => {
+                response.status(result.error ? 500 : 200).json(result);
             });
         });
     }

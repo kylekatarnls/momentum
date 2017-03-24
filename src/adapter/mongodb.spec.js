@@ -21,7 +21,7 @@ describe('MongodbAdapter', () => {
 
             return err;
         }).then(() => {
-            expect(error + '').toBe('MongoError: failed to connect to server [999.999.999.999:999] on first connect');
+            expect(error + '').toContain('MongoError: failed to connect to server [999.999.999.999:999] on first connect');
             done();
         });
     });
