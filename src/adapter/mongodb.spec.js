@@ -47,19 +47,19 @@ describe('MongodbAdapter', () => {
                             expect(obj.b).toBe(3);
                             mongoAdapter.insertOne('unitTests', {a: 2}).then(status => {
                                 expect(status.result.ok).toBe(1);
-                                mongoAdapter.find('unitTests', {a: 2}).toArray((err, objs) => {
+                                mongoAdapter.find('unitTests', {a: 2}).toArray((err, objects) => {
                                     expect(err).toBe(null);
-                                    expect(objs.length).toBe(2);
-                                    expect(objs[0].a).toBe(2);
+                                    expect(objects.length).toBe(2);
+                                    expect(objects[0].a).toBe(2);
                                     mongoAdapter.updateOne('unitTests', {a: 1}, {a: 1, b: 5}).then(() => {
                                         mongoAdapter.findOne('unitTests', {a: 1}).then(obj => {
                                             expect(obj.b).toBe(5);
                                             mongoAdapter.updateMany('unitTests', {a: {$gt: 1}}, {$set: {c: 6}}).then(() => {
-                                                mongoAdapter.find('unitTests', {a: 2}).toArray((err, objs) => {
+                                                mongoAdapter.find('unitTests', {a: 2}).toArray((err, objects) => {
                                                     expect(err).toBe(null);
                                                     let d = 0;
                                                     let c = 0;
-                                                    objs.forEach(obj => {
+                                                    objects.forEach(obj => {
                                                         d += obj.d | 0;
                                                         c += obj.c | 0;
                                                     });

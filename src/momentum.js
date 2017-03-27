@@ -408,14 +408,14 @@ class Momentum {
 
     remove(collection, filter, options) {
         return new Promise((resolve, reject) => {
-            this.find(collection, filter).toArray((err, objs) => {
+            this.find(collection, filter).toArray((err, objects) => {
                 if (err) {
                     reject(err);
 
                     return;
                 }
 
-                const ids = objs.map(obj => this.getItemId(obj));
+                const ids = objects.map(obj => this.getItemId(obj));
                 const promise = this.adapter.remove(collection, filter, options);
                 promise.then(result => {
                     const args = ['remove', collection, ids, filter, result];

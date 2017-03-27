@@ -48,14 +48,15 @@ class FoobarAdapter extends AdapterInterface {
     }
 
     start() {
-        return new Promise(resove => {
-            resove(true);
+        return new Promise(resolve => {
+            resolve(true);
         });
     }
 
     stop() {
     }
 
+    //noinspection JSMethodCanBeStatic
     getBar() {
         return 42;
     }
@@ -72,13 +73,15 @@ class FoobarAdapter extends AdapterInterface {
 describe('Momentum', () => {
     it('should invalidate tokens on invalidateTokens call', (done) => {
         Momentum.connect(8091, 'mongodb://localhost:27017/momentum').then(momentum => {
-            momentum.options.collectionPrefix = 'aa';
-            const tokens = 'aa' + 'tokens';
-            momentum.insertOne(tokens, {ip: 'aa'}).then(() => {
-                momentum.count(tokens, {ip: 'aa'}).then(count => {
+            const prefix = 'aa';
+            const ip = 'bb';
+            const tokens = prefix + 'tokens';
+            momentum.options.collectionPrefix = prefix;
+            momentum.insertOne(tokens, {ip}).then(() => {
+                momentum.count(tokens, {ip}).then(count => {
                     expect(count).toBe(1);
-                    momentum.invalidateTokens({ip: {$in: ['aa', '127.0.0.1']}}).then(() => {
-                        momentum.count(tokens, {ip: 'aa'}).then(count => {
+                    momentum.invalidateTokens({ip: {$in: [ip, '127.0.0.1']}}).then(() => {
+                        momentum.count(tokens, {ip}).then(count => {
                             expect(count).toBe(0);
                             momentum.stop();
                             done();
