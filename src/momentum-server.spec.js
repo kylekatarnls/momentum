@@ -399,7 +399,7 @@ describe('MomentumServer', () => {
     it('should check token on re-listen if invalidated', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
-        momentum.options.timeOut = 1000;
+        momentum.options.timeOut = 500;
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(result => {
                 const token = result.token;
@@ -411,16 +411,18 @@ describe('MomentumServer', () => {
                     expect(result.status).toBe('success');
                     setTimeout(() => {
                         momentum.invalidateTokens({}).then(() => {
-                            app.call('post', '/api/mm/listen', {
-                                collection: 'foo',
-                                id: '123'
-                            }).then(result => {
-                                expect(typeof result).toBe('object');
-                                expect(result.error).toContain('Invalid token ' + token);
-                                done();
-                            });
+                            setTimeout(() => {
+                                app.call('post', '/api/mm/listen', {
+                                    collection: 'foo',
+                                    id: '123'
+                                }).then(result => {
+                                    expect(typeof result).toBe('object');
+                                    expect(result.error).toContain('Invalid token ' + token);
+                                    done();
+                                });
+                            }, 100);
                         });
-                    }, 1500);
+                    }, 700);
                 });
             });
         });

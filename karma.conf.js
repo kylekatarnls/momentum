@@ -45,7 +45,8 @@ module.exports = config => {
                 }
             ]
         },
-        captureTimeout: 30000,
+        browserDisconnectTimeout: 8000,
+        browserNoActivityTimeout: 30000,
         expressHttpServer: {
             port: 8092,
             appVisitor: App
