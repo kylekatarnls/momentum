@@ -1,3 +1,3 @@
-const Momentum = require('./src/momentum');
+const MomentumServer = require('./src/momentum-server');
 
-module.exports = Momentum;
+module.exports = MomentumServer;

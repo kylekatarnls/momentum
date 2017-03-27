@@ -1,5 +1,5 @@
 const AdapterInterface = require('./adapter/interface');
-const Momentum = require('./momentum');
+const MomentumServer = require('./momentum-server');
 
 const emulateApp = () => ({
     token: null,
@@ -70,9 +70,9 @@ class FoobarAdapter extends AdapterInterface {
     }
 }
 
-describe('Momentum', () => {
+describe('MomentumServer', () => {
     it('should invalidate tokens on invalidateTokens call', (done) => {
-        Momentum.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
+        MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
             const prefix = 'aa';
             const ip = 'bb';
             const tokens = prefix + 'tokens';
@@ -92,7 +92,7 @@ describe('Momentum', () => {
         });
     });
     it('should start successfully with mongodb', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
 
         momentum.adapter.start().then(() => {
             const bob = {
@@ -111,19 +111,19 @@ describe('Momentum', () => {
         });
     });
     it('should have null adapter with wrong arguments', () => {
-        const momentum = new Momentum('foobar');
+        const momentum = new MomentumServer('foobar');
         momentum.stop();
 
         expect(momentum.adapter).toBe(null);
     });
     it('should have an editable url prefix', () => {
-        const momentum = new Momentum('foobar');
+        const momentum = new MomentumServer('foobar');
         expect(momentum.getUrlPrefix()).toBe('/api/mm/');
         momentum.setUrlPrefix('/mm/api/');
         expect(momentum.getUrlPrefix()).toBe('/mm/api/');
     });
     it('should have an editable authorization strategy', (done) => {
-        const momentum = new Momentum('foobar');
+        const momentum = new MomentumServer('foobar');
         momentum.isAllowed('a').then(allowed => {
             expect(allowed).toBe(true);
             momentum.isAllowed('b').then(allowed => {
@@ -144,19 +144,19 @@ describe('Momentum', () => {
         });
     });
     it('should handle custom adapter', () => {
-        Momentum.addAdapter('foobar', FoobarAdapter);
-        const momentum = new Momentum('foo:bar');
+        MomentumServer.addAdapter('foobar', FoobarAdapter);
+        const momentum = new MomentumServer('foo:bar');
 
         expect(momentum.adapter.getBar()).toBe(42);
     });
     it('should be able to link to an app', () => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.linkApplication({a: 42});
 
         expect(momentum.linkedApp.a).toBe(42);
     });
     it('should listen the /on route', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(result => {
@@ -191,7 +191,7 @@ describe('Momentum', () => {
         });
     });
     it('should handle errors on /emit route', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
             app.call('post', '/api/mm/emit', {
@@ -205,7 +205,7 @@ describe('Momentum', () => {
         });
     });
     it('should handle authorization strategy', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.setAuthorizationStrategy((mode, method, args) => {
             return !args[1].voldemort;
@@ -222,7 +222,7 @@ describe('Momentum', () => {
         });
     });
     it('should handle db errors', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
             momentum.remove('magicians', {name: 'Harry'}).then(() => {
@@ -244,7 +244,7 @@ describe('Momentum', () => {
         });
     });
     it('should wait for ready on the /ready route', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         let outsideCalled = false;
         momentum.start(app).then(() => {
@@ -260,7 +260,7 @@ describe('Momentum', () => {
         });
     });
     it('should wait until timeout', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.options.timeOut = 500;
         const app = emulateApp();
         momentum.start(app).then(() => {
@@ -272,7 +272,7 @@ describe('Momentum', () => {
         });
     });
     it('should check token', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(() => {
@@ -288,7 +288,7 @@ describe('Momentum', () => {
         });
     });
     it('should allow custom filters', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.addFilter('foo', (...args) => {
             return new Promise(resolve => {
                 args[0][4].a++;
@@ -328,7 +328,7 @@ describe('Momentum', () => {
         });
     });
     it('should handle connections overflow', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.options.maxTokensPerIp = 3;
         const app = emulateApp();
         momentum.start(app).then(() => {
@@ -346,13 +346,13 @@ describe('Momentum', () => {
         });
     });
     it('should have a port setting editable', () => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.setApplicationPort(22);
 
         expect(momentum.appPort).toBe(22);
     });
     it('should start and stop successfully with no app', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
 
         momentum.start(8092);
         momentum.stop();
@@ -364,7 +364,7 @@ describe('Momentum', () => {
         });
     });
     it('should start and stop successfully with an app', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = {get() {}, post () {}};
 
         momentum.start(app).then(() => {
@@ -374,12 +374,12 @@ describe('Momentum', () => {
         });
     });
     it('should handle bad event argument', () => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
 
         expect(() => momentum.on(false)).toThrow(new Error('event must be a string or an array'));
     });
     it('should handle events', (done) => {
-        Momentum.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
+        MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
             momentum.remove('config', {type: 'main'}).then(() => {
                 const logs = [];
                 momentum.onCollectionTouched('config', type => {
@@ -422,7 +422,7 @@ describe('Momentum', () => {
         });
     });
     it('should handle array events', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.start(8092).then(() => {
 
             let count = 0;
@@ -441,7 +441,7 @@ describe('Momentum', () => {
         });
     });
     it('should handle grouped events', (done) => {
-        const momentum = new Momentum('mongodb://localhost:27017/momentum');
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.start(8092).then(() => {
             let count = 0;
             const offCollection = momentum.onCollectionTouched('foo', () => {
@@ -476,8 +476,8 @@ describe('Momentum', () => {
         });
     });
     it('should handle remove failure', (done) => {
-        Momentum.addAdapter('foobar', FoobarAdapter);
-        const momentum = new Momentum('foo:bar');
+        MomentumServer.addAdapter('foobar', FoobarAdapter);
+        const momentum = new MomentumServer('foo:bar');
 
         momentum.start(8092).then(() => {
             let error = null;

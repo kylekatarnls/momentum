@@ -7,7 +7,7 @@ const MomentumEventEmitter = require('./event/emitter');
 const adapters = {
     mongodb: mondogbAdapter
 };
-const getAdapter = (...args) => {
+const createAdapterInstance = (...args) => {
     const names = Object.keys(adapters);
     while (names.length) {
         const name = names.shift();
@@ -30,7 +30,13 @@ const eventTypes = {
     insert: 'insert'
 };
 
-class Momentum {
+class MomentumServer {
+    /**
+     * Init a momentum server with an adapter (arguments
+     * are passed to the adapter constructor).
+     *
+     * @param args
+     */
     constructor(...args) {
         this.isReady = false;
         this.readyPromises = [];
@@ -40,7 +46,8 @@ class Momentum {
             timeOut: 120000,
             collectionPrefix: 'mm_'
         };
-        this.adapter = getAdapter(...args);
+        this.adapter = createAdapterInstance(...args);
+        this.initializeEventsEmitter();
     }
 
     static addAdapter(name, adapter) {
@@ -48,21 +55,58 @@ class Momentum {
     }
 
     static connect(app, ...args) {
-        const momentum = new Momentum(...args);
+        const momentum = new MomentumServer(...args);
 
         return momentum.start(app).then(() => {
             return momentum;
         });
     }
 
+    /**
+     * Reset events emitter instance.
+     */
+    initializeEventsEmitter() {
+        this.eventsEmitter = null;
+    }
+
+    /**
+     * @return {MomentumEventEmitter}
+     */
+    getEventsEmitter() {
+        if (!this.eventsEmitter) {
+            this.eventsEmitter = new MomentumEventEmitter();
+        }
+
+        return this.eventsEmitter;
+    }
+
+    /**
+     * Add a callback filter available from the API.
+     *
+     * @param {string}   filter   filter name
+     * @param {Function} callback callback function to be called on
+     *                            filter name requested
+     */
     addFilter(filter, callback) {
         this.filters[filter] = callback;
     }
 
+    /**
+     * Return the callback function for a given filter name.
+     *
+     * @param {string} filter
+     *
+     * @return {Function|null}
+     */
     getFilter(filter) {
         return this.filters[filter] || null;
     }
 
+    /**
+     * Return the authorization strategy.
+     *
+     * @return {Function<Promise>}
+     */
     getAuthorizationStrategy() {
         return this.authorizationStrategy || (() => {
             return new Promise(resolve => {
@@ -71,37 +115,103 @@ class Momentum {
         });
     }
 
+    /**
+     * Set/replace the authorization strategy.
+     * It must be a function that return a promise that resolve true or false.
+     *
+     * @param {Function} authorizationStrategy
+     *
+     * @return this
+     */
     setAuthorizationStrategy(authorizationStrategy) {
         this.authorizationStrategy = authorizationStrategy;
 
         return this;
     }
 
+    /**
+     * Return a promise that will resolve true if the action is authorized
+     * by the authorization strategy, and resolve false else.
+     *
+     * @param {string} mode
+     * @param {string} method
+     * @param {Array}  args
+     * @param {Object} request
+     * @param {Object} response
+     *
+     * @return {Promise}
+     */
     isAllowed(mode, method, args, request, response) {
         return this.getAuthorizationStrategy()(mode, method, args, request, response);
     }
 
+    /**
+     * Change the URL prefix that will come between the host URL
+     * and the route.
+     *
+     * @param {string} urlPrefix
+     *
+     * @return this
+     */
     setUrlPrefix(urlPrefix) {
         this.urlPrefix = urlPrefix;
+
+        return this;
     }
 
+    /**
+     * Return the current URL prefix.
+     *
+     * @returns {string}
+     */
     getUrlPrefix() {
         return this.urlPrefix || '/api/mm/';
     }
 
+    /**
+     * Link an express app to the momentum server to
+     * serve the momentum API from this app.
+     *
+     * @param {Object} app
+     */
     linkApplication(app) {
         this.linkedApp = app;
     }
 
+    /**
+     * Set the application listen port.
+     *
+     * @param {int} appPort
+     *
+     * @return this
+     */
     setApplicationPort(appPort) {
         this.appPort = appPort;
+
+        return this;
     }
 
+    /**
+     * Invalidate tokens that match the given filter.
+     *
+     * @param {Object} filter
+     *
+     * @return {Promise}
+     */
     invalidateTokens(filter) {
         const tokens = this.options.collectionPrefix + 'tokens';
+
         return this.remove(tokens, filter);
     }
 
+    /**
+     * Return a promise that will resolve true if the given token
+     * is valid, and resolve false else.
+     *
+     * @param {string} token
+     *
+     * @return {Promise.<boolean>}
+     */
     isTokenValid(token) {
         const tokens = this.options.collectionPrefix + 'tokens';
         return this.count(tokens, {token}).then(count => {
@@ -109,6 +219,9 @@ class Momentum {
         });
     }
 
+    /**
+     * Add the /ready route to the momentum server app.
+     */
     addReadyRoute() {
         this.app.get(this.getUrlPrefix() + 'ready', (request, response) => {
             const readyCallback = () => {
@@ -156,6 +269,9 @@ class Momentum {
         });
     }
 
+    /**
+     * Add the /on route to the momentum server app.
+     */
     addOnRoute() {
         this.app.get(this.getUrlPrefix() + 'on', (request, response) => {
             let end;
@@ -202,6 +318,9 @@ class Momentum {
         });
     }
 
+    /**
+     * Add the /listen route to the momentum server app.
+     */
     addListenRoute() {
         this.app.post(this.getUrlPrefix() + 'listen', bodyParser.json(), (request, response) => {
             const token = request.body.token;
@@ -268,6 +387,9 @@ class Momentum {
         });
     }
 
+    /**
+     * Add the /emit route to the momentum server app.
+     */
     addEmitRoute() {
         this.app.post(this.getUrlPrefix() + 'emit', bodyParser.json(), (request, response) => {
             const method = request.body.method;
@@ -294,6 +416,12 @@ class Momentum {
         });
     }
 
+    /**
+     * Start the momentum server (start the adapter and
+     * start the API to listen the needed routes).
+     *
+     * @param {int|Object} app optional app to link or port to listen
+     */
     start(app = null) {
         let appPort = null;
         if (!isNaN(app)) {
@@ -313,7 +441,7 @@ class Momentum {
         this.addOnRoute();
         this.addListenRoute();
         this.addEmitRoute();
-        this.events = new MomentumEventEmitter();
+        this.initializeEventsEmitter();
         const start = this.adapter.start();
         start.then(() => {
             this.isReady = true;
@@ -326,6 +454,9 @@ class Momentum {
         return start;
     }
 
+    /**
+     * Stop the adapter and the momentum server.
+     */
     stop() {
         if (this.adapter) {
             this.adapter.stop();
@@ -343,12 +474,12 @@ class Momentum {
             events = [events];
         }
         events.forEach(event => {
-            this.events.on(event, ...args);
+            this.getEventsEmitter().on(event, ...args);
         });
 
         return () => {
             events.forEach(event => {
-                this.events.removeListener(event, ...args);
+                this.getEventsEmitter().removeListener(event, ...args);
             });
         };
     }
@@ -400,21 +531,48 @@ class Momentum {
     }
 
     emit(...args) {
-        return this.events.emit(...args);
+        return this.getEventsEmitter().emit(...args);
     }
 
+    /**
+     * Emit an event.
+     *
+     * @param {string} eventKey
+     * @param {Object} eventParam
+     * @param {Array}  args
+     *
+     * @returns {*}
+     */
     emitEvent(eventKey, eventParam, ...args) {
         const event = eventTypes[eventKey];
 
         return this.emit(event + ':' + eventParam, event, ...args);
     }
 
+    /**
+     * Emit an error event.
+     *
+     * @param {string} eventKey
+     * @param {Object} eventParam
+     * @param {Array}  args
+     *
+     * @returns {*}
+     */
     emitError(eventKey, eventParam, ...args) {
         const event = eventTypes[eventKey] + '-error';
 
         return this.emit(event + ':' + eventParam, event, ...args);
     }
 
+    /**
+     * Remove items.
+     *
+     * @param {string} collection
+     * @param {Object} filter
+     * @param {Object} options
+     *
+     * @returns {Promise}
+     */
     remove(collection, filter, options) {
         return new Promise((resolve, reject) => {
             this.find(collection, filter).toArray((err, objects) => {
@@ -441,6 +599,16 @@ class Momentum {
         });
     }
 
+    /**
+     * Call a write method on the adapter and emit
+     * corresponding events.
+     *
+     * @param {string} method
+     * @param {Array}  args
+     * @param {Array}  events
+     *
+     * @returns {Promise}
+     */
     callAdapter(method, args, events) {
         const promise = this.adapter[method](...args);
         promise.then(result => {
@@ -456,6 +624,15 @@ class Momentum {
         return promise;
     }
 
+    /**
+     * Insert one item.
+     *
+     * @param {string} collection
+     * @param {Object} document
+     * @param {Object} options
+     *
+     * @returns {Promise}
+     */
     insertOne(collection, document, options) {
         return this.callAdapter(
             'insertOne', [
@@ -466,6 +643,16 @@ class Momentum {
         );
     }
 
+    /**
+     * Update one item.
+     *
+     * @param {string} collection
+     * @param {Object} filter
+     * @param {Object} update
+     * @param {Object} options
+     *
+     * @returns {Promise}
+     */
     updateOne(collection, filter, update, options) {
         return this.findOne(collection, filter).then(obj => {
             const id = this.getItemId(obj);
@@ -481,25 +668,60 @@ class Momentum {
         });
     }
 
+    /**
+     * Return id for a given item.
+     *
+     * @param {Object} item
+     *
+     * @returns {string|int}
+     */
     getItemId(item) {
         return this.adapter.getItemId(item);
     }
 
-    getFilterFromItemId(item) {
-        return this.adapter.getFilterFromItemId(item);
+    /**
+     * Return filter object for a given id.
+     *
+     * @param {string|int} itemId
+     *
+     * @returns {Object}
+     */
+    getFilterFromItemId(itemId) {
+        return this.adapter.getFilterFromItemId(itemId);
     }
 
+    /**
+     * Count items.
+     *
+     * @param args
+     *
+     * @returns {Promise}
+     */
     count(...args) {
         return this.adapter.count(...args);
     }
 
+    /**
+     * Find items.
+     *
+     * @param args
+     *
+     * @returns {Promise}
+     */
     find(...args) {
         return this.adapter.find(...args);
     }
 
+    /**
+     * Find one item.
+     *
+     * @param args
+     *
+     * @returns {Promise}
+     */
     findOne(...args) {
         return this.adapter.findOne(...args);
     }
 }
 
-module.exports = Momentum;
+module.exports = MomentumServer;

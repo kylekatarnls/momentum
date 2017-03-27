@@ -1,5 +1,5 @@
 const bodyParser = require('body-parser');
-const Momentum = require('../src/momentum');
+const MomentumServer = require('../src/momentum-server');
 
 function App(app, log) {
     app.use(bodyParser.urlencoded({
@@ -27,7 +27,7 @@ function App(app, log) {
             response.status(200).json(request[methods[method]]);
         });
     });
-    Momentum.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
+    MomentumServer.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
         momentum.invalidateTokens({ip: {$in: ['::1', '127.0.0.1']}});
     });
 }
