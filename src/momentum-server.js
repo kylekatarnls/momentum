@@ -611,15 +611,14 @@ class MomentumServer {
      */
     callAdapter(method, args, events) {
         const promise = this.adapter[method](...args);
-        promise.then(result => {
+        const callback = emitFunction => result => {
             events.forEach(event => {
-                this.emitEvent(...event, method, result, ...args);
+                emitFunction.call(this, ...event, method, result, ...args);
             });
-        }).catch(error => {
-            events.forEach(event => {
-                this.emitError(...event, method, error, ...args);
-            });
-        });
+        };
+        promise
+            .then(callback(this.emitEvent))
+            .catch(callback(this.emitError));
 
         return promise;
     }

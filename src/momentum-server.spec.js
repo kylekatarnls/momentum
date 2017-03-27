@@ -5,25 +5,22 @@ const emulateApp = () => ({
     token: null,
     getRoutes: {},
     postRoutes: {},
+    lastResponse: null,
     get(route, callback) {
         this.getRoutes[route] = callback;
     },
     post(route, ...callbacks) {
         this.postRoutes[route] = callbacks.pop();
     },
+    getLastResponse() {
+        return this.lastResponse;
+    },
     call(method, route, body = {}) {
         body.token = this.token;
         const app = this;
 
         return new Promise(resolve => {
-            this[method + 'Routes'][route]({
-                headers: {},
-                connection: {
-                    remoteAddress: '127.0.0.1'
-                },
-                body,
-                query: body
-            }, {
+            this.lastResponse = {
                 status() {
                     return this;
                 },
@@ -37,7 +34,15 @@ const emulateApp = () => ({
 
                     return this;
                 }
-            });
+            };
+            this[method + 'Routes'][route]({
+                headers: {},
+                connection: {
+                    remoteAddress: '127.0.0.1'
+                },
+                body,
+                query: body
+            }, this.lastResponse);
         });
     }
 });
@@ -71,7 +76,7 @@ class FoobarAdapter extends AdapterInterface {
 }
 
 describe('MomentumServer', () => {
-    it('should invalidate tokens on invalidateTokens call', (done) => {
+    it('should invalidate tokens on invalidateTokens call', done => {
         MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
             const prefix = 'aa';
             const ip = 'bb';
@@ -91,7 +96,7 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should start successfully with mongodb', (done) => {
+    it('should start successfully with mongodb', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
 
         momentum.adapter.start().then(() => {
@@ -122,7 +127,7 @@ describe('MomentumServer', () => {
         momentum.setUrlPrefix('/mm/api/');
         expect(momentum.getUrlPrefix()).toBe('/mm/api/');
     });
-    it('should have an editable authorization strategy', (done) => {
+    it('should have an editable authorization strategy', done => {
         const momentum = new MomentumServer('foobar');
         momentum.isAllowed('a').then(allowed => {
             expect(allowed).toBe(true);
@@ -155,7 +160,7 @@ describe('MomentumServer', () => {
 
         expect(momentum.linkedApp.a).toBe(42);
     });
-    it('should listen the /on route', (done) => {
+    it('should listen the /on route', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
@@ -178,19 +183,61 @@ describe('MomentumServer', () => {
                     }).then(result => {
                         expect(typeof result).toBe('object');
                         expect(result.status).toBe('success');
-                    });
-                    app.call('post', '/api/mm/emit', {
-                        method: 'insertOne',
-                        args: ['config', {a: 1}]
-                    }).then(result => {
-                        expect(typeof result).toBe('object');
-                        expect(result).toEqual({n: 1, ok: 1});
+                        app.call('post', '/api/mm/emit', {
+                            method: 'insertOne',
+                            args: ['config', {a: 1}]
+                        }).then(result => {
+                            expect(typeof result).toBe('object');
+                            expect(result).toEqual({n: 1, ok: 1});
+                        });
                     });
                 }, 500);
             });
         });
     });
-    it('should handle errors on /emit route', (done) => {
+    it('should group /on calls when close in time', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(result => {
+                expect(typeof result).toBe('object');
+                expect(result.status).toBe('success');
+                app.call('get', '/api/mm/on').then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(typeof result.events).toBe('object');
+                    expect(typeof result.events[0]).toBe('object');
+                    expect(typeof result.events[0].args).toBe('object');
+                    expect(result.events.length).toBe(2);
+                    expect(result.events[0].args[1]).toBe('insertOne');
+                    expect(typeof result.events[0].args[4]).toBe('object');
+                    expect(result.events[0].args[4].a).toBe(1);
+                    expect(result.events[1].args[1]).toBe('insertOne');
+                    expect(typeof result.events[1].args[4]).toBe('object');
+                    expect(result.events[1].args[4].a).toBe(2);
+                    done();
+                });
+                setTimeout(() => {
+                    app.call('post', '/api/mm/listen', {
+                        collection: 'config'
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.status).toBe('success');
+                        app.call('post', '/api/mm/emit', {
+                            method: 'insertOne',
+                            args: ['config', {a: 1}]
+                        });
+                        setTimeout(() => {
+                            app.call('post', '/api/mm/emit', {
+                                method: 'insertOne',
+                                args: ['config', {a: 2}]
+                            });
+                        }, 50);
+                    });
+                }, 500);
+            });
+        });
+    });
+    it('should handle errors on /emit route', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
@@ -204,7 +251,7 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should handle authorization strategy', (done) => {
+    it('should handle authorization strategy', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.setAuthorizationStrategy((mode, method, args) => {
@@ -221,7 +268,7 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should handle db errors', (done) => {
+    it('should handle db errors', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
@@ -243,7 +290,7 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should wait for ready on the /ready route', (done) => {
+    it('should wait for ready on the /ready route', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         let outsideCalled = false;
@@ -259,7 +306,7 @@ describe('MomentumServer', () => {
             outsideCalled = true;
         });
     });
-    it('should wait until timeout', (done) => {
+    it('should wait until timeout', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.options.timeOut = 500;
         const app = emulateApp();
@@ -271,7 +318,7 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should check token', (done) => {
+    it('should check token', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
@@ -287,7 +334,90 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should allow custom filters', (done) => {
+    it('should check token on re-listen if changed', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.options.timeOut = 1000;
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                app.call('post', '/api/mm/listen', {
+                    collection: 'foo',
+                    id: '123'
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.status).toBe('success');
+                    setTimeout(() => {
+                        app.token = 'wrong';
+                        app.call('post', '/api/mm/listen', {
+                            collection: 'foo',
+                            id: '123'
+                        }).then(result => {
+                            expect(typeof result).toBe('object');
+                            expect(result.error).toBe('Invalid token wrong');
+                            done();
+                        });
+                    }, 1500);
+                });
+            });
+        });
+    });
+    it('should check token on re-listen if invalidated', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.options.timeOut = 1000;
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(result => {
+                const token = result.token;
+                app.call('post', '/api/mm/listen', {
+                    collection: 'foo',
+                    id: '123'
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.status).toBe('success');
+                    setTimeout(() => {
+                        momentum.invalidateTokens({});
+                        app.call('post', '/api/mm/listen', {
+                            collection: 'foo',
+                            id: '123'
+                        }).then(result => {
+                            expect(typeof result).toBe('object');
+                            expect(result.error).toContain('Invalid token ' + token);
+                            done();
+                        });
+                    }, 1500);
+                });
+            });
+        });
+    });
+    it('should check token on re-listen if invalidated', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.options.timeOut = 1000;
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(result => {
+                const token = result.token;
+                app.call('post', '/api/mm/listen', {
+                    collection: 'foo',
+                    id: '123'
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.status).toBe('success');
+                    setTimeout(() => {
+                        momentum.invalidateTokens({});
+                        app.call('post', '/api/mm/listen', {
+                            collection: 'foo',
+                            id: '123'
+                        }).then(result => {
+                            expect(typeof result).toBe('object');
+                            expect(result.error).toContain('Invalid token ' + token);
+                            done();
+                        });
+                    }, 1500);
+                });
+            });
+        });
+    });
+    it('should allow custom filters', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.addFilter('foo', (...args) => {
             return new Promise(resolve => {
@@ -327,7 +457,7 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should handle connections overflow', (done) => {
+    it('should handle connections overflow', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.options.maxTokensPerIp = 3;
         const app = emulateApp();
@@ -351,7 +481,7 @@ describe('MomentumServer', () => {
 
         expect(momentum.appPort).toBe(22);
     });
-    it('should start and stop successfully with no app', (done) => {
+    it('should start and stop successfully with no app', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
 
         momentum.start(8092);
@@ -363,7 +493,7 @@ describe('MomentumServer', () => {
             done();
         });
     });
-    it('should start and stop successfully with an app', (done) => {
+    it('should start and stop successfully with an app', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = {get() {}, post () {}};
 
@@ -378,7 +508,7 @@ describe('MomentumServer', () => {
 
         expect(() => momentum.on(false)).toThrow(new Error('event must be a string or an array'));
     });
-    it('should handle events', (done) => {
+    it('should handle events', done => {
         MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
             momentum.remove('config', {type: 'main'}).then(() => {
                 const logs = [];
@@ -421,7 +551,7 @@ describe('MomentumServer', () => {
             });
         });
     });
-    it('should handle array events', (done) => {
+    it('should handle array events', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.start(8092).then(() => {
 
@@ -440,7 +570,7 @@ describe('MomentumServer', () => {
             done();
         });
     });
-    it('should handle grouped events', (done) => {
+    it('should handle grouped events', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.start(8092).then(() => {
             let count = 0;
@@ -475,7 +605,7 @@ describe('MomentumServer', () => {
             done();
         });
     });
-    it('should handle remove failure', (done) => {
+    it('should handle remove failure', done => {
         MomentumServer.addAdapter('foobar', FoobarAdapter);
         const momentum = new MomentumServer('foo:bar');
 
