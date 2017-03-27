@@ -9,7 +9,8 @@ engines:
       - python
       - php
     exclude_paths:
-    - **/*.{spec,test}.js
+    - **/*.spec.js
+    - **/*.test.js
   eslint:
     enabled: true
   fixme:
