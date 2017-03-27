@@ -195,6 +195,41 @@ describe('MomentumServer', () => {
             });
         });
     });
+    it('should call back the /on route only if response not already sent', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(result => {
+                expect(typeof result).toBe('object');
+                expect(result.status).toBe('success');
+                let count = 0;
+                const inc = () => {
+                    count++;
+                };
+                app.call('get', '/api/mm/on').then(inc);
+                setTimeout(() => {
+                    const response = app.getLastResponse();
+                    app.call('post', '/api/mm/listen', {
+                        collection: 'config'
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.status).toBe('success');
+                        response.headersSent = true;
+                        app.call('post', '/api/mm/emit', {
+                            method: 'insertOne',
+                            args: ['config', {a: 'bad'}]
+                        }).then(() => {
+                            setTimeout(() => {
+                                inc();
+                                expect(count).toBe(1);
+                                done();
+                            }, 500);
+                        });
+                    });
+                }, 500);
+            });
+        });
+    });
     it('should group /on calls when close in time', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
@@ -375,14 +410,15 @@ describe('MomentumServer', () => {
                     expect(typeof result).toBe('object');
                     expect(result.status).toBe('success');
                     setTimeout(() => {
-                        momentum.invalidateTokens({});
-                        app.call('post', '/api/mm/listen', {
-                            collection: 'foo',
-                            id: '123'
-                        }).then(result => {
-                            expect(typeof result).toBe('object');
-                            expect(result.error).toContain('Invalid token ' + token);
-                            done();
+                        momentum.invalidateTokens({}).then(() => {
+                            app.call('post', '/api/mm/listen', {
+                                collection: 'foo',
+                                id: '123'
+                            }).then(result => {
+                                expect(typeof result).toBe('object');
+                                expect(result.error).toContain('Invalid token ' + token);
+                                done();
+                            });
                         });
                     }, 1500);
                 });

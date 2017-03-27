@@ -291,7 +291,7 @@ class MomentumServer {
                     if (!group) {
                         group = setTimeout(() => {
                             this.find(eventsCollection, {token}).toArray((err, events) => {
-                                if (!err && events && !response.headerSent) {
+                                if (!err && events && !response.headersSent) {
                                     response.status(200).json({
                                         events: events.map(event => {
                                             event.args = JSON.parse(event.args);
