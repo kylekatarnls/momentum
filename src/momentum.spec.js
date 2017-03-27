@@ -168,8 +168,8 @@ describe('Momentum', () => {
                     expect(typeof result.events[0]).toBe('object');
                     expect(typeof result.events[0].args).toBe('object');
                     expect(result.events[0].args[1]).toBe('insertOne');
-                    expect(typeof result.events[0].args[3]).toBe('object');
-                    expect(result.events[0].args[3].a).toBe(1);
+                    expect(typeof result.events[0].args[4]).toBe('object');
+                    expect(result.events[0].args[4].a).toBe(1);
                     done();
                 });
                 setTimeout(() => {
@@ -225,8 +225,8 @@ describe('Momentum', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
-            const harry = {name: 'Harry'};
-            momentum.remove('magicians', harry).then(() => {
+            momentum.remove('magicians', {name: 'Harry'}).then(() => {
+                const harry = {name: 'Harry'};
                 momentum.insertOne('magicians', harry).then(() => {
                     app.call('post', '/api/mm/emit', {
                         method: 'insertOne',
@@ -291,7 +291,7 @@ describe('Momentum', () => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
         momentum.addFilter('foo', (...args) => {
             return new Promise(resolve => {
-                args[0][3].a++;
+                args[0][4].a++;
 
                 resolve(...args);
             });
@@ -309,7 +309,7 @@ describe('Momentum', () => {
                     }).then(result => {
                         expect(result.error).toBe('Missing collection name');
                         app.call('get', '/api/mm/on').then(result => {
-                            expect(result.events[0].args[3].a).toBe(2);
+                            expect(result.events[0].args[4].a).toBe(2);
                             done();
                         });
                         setTimeout(() => {

@@ -409,6 +409,12 @@ class Momentum {
         return this.emit(event + ':' + eventParam, event, ...args);
     }
 
+    emitError(eventKey, eventParam, ...args) {
+        const event = eventTypes[eventKey] + '-error';
+
+        return this.emit(event + ':' + eventParam, event, ...args);
+    }
+
     remove(collection, filter, options) {
         return new Promise((resolve, reject) => {
             this.find(collection, filter).toArray((err, objects) => {
@@ -435,27 +441,43 @@ class Momentum {
         });
     }
 
-    insertOne(collection, document, options) {
-        const promise = this.adapter.insertOne(collection, document, options);
+    callAdapter(method, args, events) {
+        const promise = this.adapter[method](...args);
         promise.then(result => {
-            const args = ['insertOne', collection, document, result];
-            this.emitEvent('insert', collection, ...args);
+            events.forEach(event => {
+                this.emitEvent(...event, method, result, ...args);
+            });
+        }).catch(error => {
+            events.forEach(event => {
+                this.emitError(...event, method, error, ...args);
+            });
         });
 
         return promise;
     }
 
+    insertOne(collection, document, options) {
+        return this.callAdapter(
+            'insertOne', [
+                collection, document, options
+            ],[
+                ['insert', collection]
+            ]
+        );
+    }
+
     updateOne(collection, filter, update, options) {
         return this.findOne(collection, filter).then(obj => {
             const id = this.getItemId(obj);
-            const promise = this.adapter.updateOne(collection, filter, update, options);
-            promise.then(result => {
-                const args = ['updateOne', collection, obj, id, filter, update, result];
-                this.emitEvent('updateCollection', collection, ...args);
-                this.emitEvent('updateItem', collection + ':' + id, ...args);
-            });
-
-            return promise;
+            Object.assign(filter, this.getFilterFromItemId(id));
+            return this.callAdapter(
+                'updateOne', [
+                    collection, filter, update, options
+                ],[
+                    ['updateCollection', collection, obj, id],
+                    ['updateItem', collection + ':' + id, obj, id]
+                ]
+            );
         });
     }
 
