@@ -185,7 +185,10 @@ class Momentum {
                                     });
                                     end();
                                     events.forEach(event => {
-                                        this.remove(eventsCollection, this.getFilterFromItemId(event));
+                                        this.remove(
+                                            eventsCollection,
+                                            this.getFilterFromItemId(this.getItemId(event))
+                                        );
                                     });
                                 }
                             });

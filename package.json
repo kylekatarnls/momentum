@@ -4,7 +4,10 @@
   "description": "Instant binding between server and connected clients",
   "main": "index.js",
   "scripts": {
+    "preinstall": "npm prune",
+    "pretest": "npm install",
     "test": "karma start && istanbul cover ./node_modules/jasmine/bin/jasmine.js",
+    "preexample": "npm install",
     "example": "node ./example/index.js"
   },
   "repository": {
