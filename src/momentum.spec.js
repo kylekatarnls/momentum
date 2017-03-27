@@ -72,7 +72,7 @@ class FoobarAdapter extends AdapterInterface {
 
 describe('Momentum', () => {
     it('should invalidate tokens on invalidateTokens call', (done) => {
-        Momentum.connect(8091, 'mongodb://localhost:27017/momentum').then(momentum => {
+        Momentum.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
             const prefix = 'aa';
             const ip = 'bb';
             const tokens = prefix + 'tokens';
@@ -354,10 +354,10 @@ describe('Momentum', () => {
     it('should start and stop successfully with no app', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
 
-        momentum.start(8091);
+        momentum.start(8092);
         momentum.stop();
-        momentum.start(8091);
-        momentum.start(8091).then(() => {
+        momentum.start(8092);
+        momentum.start(8092).then(() => {
             expect(typeof momentum.app.use).toBe('function');
             momentum.stop();
             done();
@@ -379,7 +379,7 @@ describe('Momentum', () => {
         expect(() => momentum.on(false)).toThrow(new Error('event must be a string or an array'));
     });
     it('should handle events', (done) => {
-        Momentum.connect(8091, 'mongodb://localhost:27017/momentum').then(momentum => {
+        Momentum.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
             momentum.remove('config', {type: 'main'}).then(() => {
                 const logs = [];
                 momentum.onCollectionTouched('config', type => {
@@ -423,7 +423,7 @@ describe('Momentum', () => {
     });
     it('should handle array events', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
-        momentum.start(8091).then(() => {
+        momentum.start(8092).then(() => {
 
             let count = 0;
             momentum.on('foo', () => {
@@ -442,7 +442,7 @@ describe('Momentum', () => {
     });
     it('should handle grouped events', (done) => {
         const momentum = new Momentum('mongodb://localhost:27017/momentum');
-        momentum.start(8091).then(() => {
+        momentum.start(8092).then(() => {
             let count = 0;
             const offCollection = momentum.onCollectionTouched('foo', () => {
                 count++;
@@ -479,7 +479,7 @@ describe('Momentum', () => {
         Momentum.addAdapter('foobar', FoobarAdapter);
         const momentum = new Momentum('foo:bar');
 
-        momentum.start(8091).then(() => {
+        momentum.start(8092).then(() => {
             let error = null;
             momentum.remove('foo', {}).catch(err => {
                 error = err;
