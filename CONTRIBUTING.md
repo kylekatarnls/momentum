@@ -87,3 +87,7 @@ git push origin my-feature-branch
 Go to https://github.com/yourusername/pug and select your feature branch. Click the 'Pull Request' button and fill out the form.
 
 We will review it within a few days. And we thank you in advance for your help.
+
+## IDE
+
+Momentum recommend you to use [<img src="http://jet-brains.selfbuild.fr/WebStorm-text.svg" width="100" height="13" alt="WebStorm">](https://www.jetbrains.com/webstorm/) to work on this project.
