@@ -284,6 +284,7 @@ class MomentumServer {
             const eventsCollection = this.options.collectionPrefix + 'events';
             const off = this.on('listen:' + token, (...args) => {
                 clearTimeout(timeout);
+                off();
                 this.insertOne(eventsCollection, {
                     token,
                     args: JSON.stringify(args)
@@ -295,17 +296,14 @@ class MomentumServer {
                                     response.status(200).json({
                                         events: events.map(event => {
                                             event.args = JSON.parse(event.args);
+                                            event.args.push(this.getItemId(event));
 
                                             return event;
                                         })
                                     });
                                     end();
-                                    events.forEach(event => {
-                                        this.remove(
-                                            eventsCollection,
-                                            this.getFilterFromItemId(this.getItemId(event))
-                                        );
-                                    });
+                                    var ids = events.map(event => this.getItemId(event));
+                                    this.remove(eventsCollection, this.getFilterFromItemId({$in: ids}));
                                 }
                             });
                         }, 200);

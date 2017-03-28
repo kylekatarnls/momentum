@@ -7,7 +7,9 @@ function App(app, log) {
     }));
     app.use(bodyParser.json());
     app.use(function (request, response, next) {
-        log.info('navigate', request.method, request.url);
+        if (~(request.headers['user-agent'] + '').indexOf('PhantomJS')) {
+            request.headers['x-forwarded-for'] = 'phjs';
+        }
         response.header('Access-Control-Allow-Origin', '*');
         response.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
         response.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -28,7 +30,8 @@ function App(app, log) {
         });
     });
     MomentumServer.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
-        momentum.invalidateTokens({ip: {$in: ['::1', '127.0.0.1']}});
+        momentum.options.maxTokensPerIp = 3;
+        momentum.invalidateTokens({ip: {$in: ['phjs', '::1', '127.0.0.1']}});
     });
 }
 
