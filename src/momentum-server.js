@@ -394,9 +394,18 @@ class MomentumServer {
         this.app.post(this.getUrlPrefix() + 'emit', bodyParser.json(), (request, response) => {
             const method = request.body.method;
             const args = request.body.args;
+
             if (['insertOne', 'updateOne', 'remove'].indexOf(method) === -1) {
                 response.status(400).json({
                     error: method + ' method unknown'
+                });
+
+                return;
+            }
+
+            if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
+                response.status(403).json({
+                    error: 'Arguments cannot be empty'
                 });
 
                 return;

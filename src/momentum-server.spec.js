@@ -282,7 +282,14 @@ describe('MomentumServer', () => {
             }).then(result => {
                 expect(typeof result).toBe('object');
                 expect(result).toEqual({error: 'insertFoo method unknown'});
-                done();
+                app.call('post', '/api/mm/emit', {
+                    method: 'insertOne',
+                    args: []
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result).toEqual({error: 'Arguments cannot be empty'});
+                    done();
+                });
             });
         });
     });
