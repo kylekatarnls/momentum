@@ -25,13 +25,19 @@ function App(app, log) {
     };
     Object.keys(methods).forEach(function (method) {
         app[method]('/reflect', function (request, response) {
-            log.info(method, methods[method], request[methods[method]]);
             response.status(200).json(request[methods[method]]);
         });
     });
     MomentumServer.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
-        momentum.options.maxTokensPerIp = 3;
+        log.info('Main server connected.');
         momentum.invalidateTokens({ip: {$in: ['phjs', '::1', '127.0.0.1']}});
+    });
+    const restrictedMomentum = new MomentumServer('mongodb://localhost:27017/restricted-momentum');
+    restrictedMomentum.setUrlPrefix('/restricted/');
+    restrictedMomentum.options.maxTokensPerIp = 2;
+    restrictedMomentum.start(app).then(() => {
+        log.info('Restricted server connected.');
+        restrictedMomentum.invalidateTokens({ip: {$in: ['phjs', '::1', '127.0.0.1']}});
     });
 }
 

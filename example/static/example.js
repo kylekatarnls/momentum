@@ -6,15 +6,14 @@ momentum.onReady(function () {
 var stop = function () {};
 var start = function () {
     stop();
-    stop = momentum.on(function () {
-        document.getElementById('log').innerHTML += [].map.call(arguments, function (data) {
-            return data.events.length + 'new events:\n' +
-                data.events.map(function (event) {
-                    var id = event.args.pop();
+    stop = momentum.on(function (data) {
+        var events = data.events;
+        document.getElementById('log').innerHTML += events.length + 'new events:\n' +
+            events.map(function (event) {
+                var id = event.args.pop();
 
-                    return id + ': ' + event.args[4].name + '\n';
-                }).join('') + '\n';
-        }).join('');
+                return id + ': ' + event.args[4].name + '\n';
+            }).join('') + '\n';
     });
 };
 var add = function () {

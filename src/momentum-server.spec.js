@@ -36,6 +36,8 @@ const emulateApp = () => ({
                 }
             };
             this[method + 'Routes'][route]({
+                setTimeout() {
+                },
                 headers: {},
                 connection: {
                     remoteAddress: '127.0.0.1'
@@ -242,16 +244,15 @@ describe('MomentumServer', () => {
                     expect(typeof result.events).toBe('object');
                     expect(typeof result.events[0]).toBe('object');
                     expect(typeof result.events[0].args).toBe('object');
-                    // @TODO fix grouping
-                    // expect(result.events.length).toBe(2);
+                    expect(result.events.length).toBe(2);
                     expect(result.events[0].args[1]).toBe('insertOne');
                     expect(typeof result.events[0].args[4]).toBe('object');
                     expect(result.events[0].args[4].a).toBe(1);
-                    // expect(typeof result.events[1]).toBe('object');
-                    // expect(typeof result.events[1].args).toBe('object');
-                    // expect(result.events[1].args[1]).toBe('insertOne');
-                    // expect(typeof result.events[1].args[4]).toBe('object');
-                    // expect(result.events[1].args[4].a).toBe(2);
+                    expect(typeof result.events[1]).toBe('object');
+                    expect(typeof result.events[1].args).toBe('object');
+                    expect(result.events[1].args[1]).toBe('insertOne');
+                    expect(typeof result.events[1].args[4]).toBe('object');
+                    expect(result.events[1].args[4].a).toBe(2);
                     done();
                 });
                 setTimeout(() => {
@@ -269,7 +270,7 @@ describe('MomentumServer', () => {
                                 method: 'insertOne',
                                 args: ['config', {a: 2}]
                             });
-                        }, 1);
+                        }, 50);
                     });
                 }, 500);
             });

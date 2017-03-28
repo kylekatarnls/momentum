@@ -228,7 +228,7 @@ class MomentumServer {
                 const ip = getIpFromRequest(request);
                 const tokens = this.options.collectionPrefix + 'tokens';
                 this.count(tokens, {ip}).then(count => {
-                    if (count > this.options.maxTokensPerIp) {
+                    if (count >= this.options.maxTokensPerIp) {
                         response.status(429).json({
                             error: 'Too many connections'
                         });
@@ -274,6 +274,7 @@ class MomentumServer {
      */
     addOnRoute() {
         this.app.get(this.getUrlPrefix() + 'on', (request, response) => {
+            request.setTimeout(0);
             let end;
             let timeout = setTimeout(() => {
                 response.status(200).json({events: []});
@@ -284,7 +285,6 @@ class MomentumServer {
             const eventsCollection = this.options.collectionPrefix + 'events';
             const off = this.on('listen:' + token, (...args) => {
                 clearTimeout(timeout);
-                off();
                 this.insertOne(eventsCollection, {
                     token,
                     args: JSON.stringify(args)
@@ -292,6 +292,7 @@ class MomentumServer {
                     if (!group) {
                         group = setTimeout(() => {
                             this.find(eventsCollection, {token}).toArray((err, events) => {
+                                off();
                                 if (!err && events && !response.headersSent) {
                                     response.status(200).json({
                                         events: events.map(event => {
