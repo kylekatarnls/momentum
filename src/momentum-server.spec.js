@@ -78,6 +78,27 @@ class FoobarAdapter extends AdapterInterface {
 }
 
 describe('MomentumServer', () => {
+    afterAll(done => {
+        MomentumServer.connect(emulateApp(), 'mongodb://localhost:27017/momentum').then(momentum => {
+            const collections = [
+                'aatokens',
+                'config',
+                'counters',
+                'magicans',
+                'people',
+                'table',
+                'unitTests'
+            ];
+            let count = collections.length;
+            collections.forEach(collection => {
+                momentum.remove(collection, {}).then(() => {
+                    if (--count < 1) {
+                        momentum.stop().then(done);
+                    }
+                });
+            });
+        });
+    });
     it('should invalidate tokens on invalidateTokens call', done => {
         MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
             const prefix = 'aa';
@@ -90,8 +111,7 @@ describe('MomentumServer', () => {
                     momentum.invalidateTokens({ip: {$in: [ip, '127.0.0.1']}}).then(() => {
                         momentum.count(tokens, {ip}).then(count => {
                             expect(count).toBe(0);
-                            momentum.stop();
-                            done();
+                            momentum.stop().then(done);
                         });
                     });
                 });
@@ -111,15 +131,16 @@ describe('MomentumServer', () => {
                     expect(err).toBe(null);
                     expect(users.length).toBe(1);
                     expect(users[0].name).toBe('Bob');
-                    momentum.adapter.stop();
-                    done();
+                    momentum.adapter.stop().then(done);
                 });
             });
         });
     });
-    it('should have null adapter with wrong arguments', () => {
+    it('should have null adapter with wrong arguments', done => {
         const momentum = new MomentumServer('foobar');
-        momentum.stop();
+        momentum.stop().then(() => {
+            setTimeout(done, 1);
+        });
 
         expect(momentum.adapter).toBe(null);
     });
@@ -177,7 +198,7 @@ describe('MomentumServer', () => {
                     expect(result.events[0].args[1]).toBe('insertOne');
                     expect(typeof result.events[0].args[4]).toBe('object');
                     expect(result.events[0].args[4].a).toBe(1);
-                    done();
+                    momentum.stop().then(done);
                 });
                 setTimeout(() => {
                     app.call('post', '/api/mm/listen', {
@@ -190,7 +211,7 @@ describe('MomentumServer', () => {
                             args: ['config', {a: 1}]
                         }).then(result => {
                             expect(typeof result).toBe('object');
-                            expect(result).toEqual({n: 1, ok: 1});
+                            expect(result.ok).toBe(1);
                         });
                     });
                 }, 500);
@@ -224,7 +245,7 @@ describe('MomentumServer', () => {
                             setTimeout(() => {
                                 inc();
                                 expect(count).toBe(1);
-                                done();
+                                momentum.stop().then(done);
                             }, 500);
                         });
                     });
@@ -253,7 +274,7 @@ describe('MomentumServer', () => {
                     expect(result.events[1].args[1]).toBe('insertOne');
                     expect(typeof result.events[1].args[4]).toBe('object');
                     expect(result.events[1].args[4].a).toBe(2);
-                    done();
+                    momentum.stop().then(done);
                 });
                 setTimeout(() => {
                     app.call('post', '/api/mm/listen', {
@@ -285,14 +306,14 @@ describe('MomentumServer', () => {
                 args: ['config', {a: 1}]
             }).then(result => {
                 expect(typeof result).toBe('object');
-                expect(result).toEqual({error: 'insertFoo method unknown'});
+                expect(result.error).toBe('insertFoo method unknown');
                 app.call('post', '/api/mm/emit', {
                     method: 'insertOne',
                     args: []
                 }).then(result => {
                     expect(typeof result).toBe('object');
-                    expect(result).toEqual({error: 'Arguments cannot be empty'});
-                    done();
+                    expect(result.error).toEqual('Arguments cannot be empty');
+                    momentum.stop().then(done);
                 });
             });
         });
@@ -309,8 +330,8 @@ describe('MomentumServer', () => {
                 args: ['magicians', {voldemort: 1}]
             }).then(result => {
                 expect(typeof result).toBe('object');
-                expect(result).toEqual({error: 'insertOne not allowed with ["magicians",{"voldemort":1}]'});
-                done();
+                expect(result.error).toBe('insertOne not allowed with ["magicians",{"voldemort":1}]');
+                momentum.stop().then(done);
             });
         });
     });
@@ -328,8 +349,7 @@ describe('MomentumServer', () => {
                         expect(typeof result).toBe('object');
                         expect(result.error.message).toContain('duplicate');
                         momentum.remove('magicians', {name: 'Harry'}).then(() => {
-                            momentum.stop();
-                            done();
+                            momentum.stop().then(done);
                         });
                     });
                 });
@@ -344,7 +364,7 @@ describe('MomentumServer', () => {
             app.call('get', '/api/mm/ready').then(() => {
                 setTimeout(() => {
                     expect(outsideCalled).toBe(true);
-                    done();
+                    momentum.stop().then(done);
                 }, 200);
             });
         });
@@ -360,7 +380,7 @@ describe('MomentumServer', () => {
             app.call('get', '/api/mm/on').then(result => {
                 expect(typeof result).toBe('object');
                 expect(result.events).toEqual([]);
-                done();
+                momentum.stop().then(done);
             });
         });
     });
@@ -375,7 +395,7 @@ describe('MomentumServer', () => {
                 }).then(result => {
                     expect(typeof result).toBe('object');
                     expect(result.error).toBe('Invalid token wrong');
-                    done();
+                    momentum.stop().then(done);
                 });
             });
         });
@@ -400,7 +420,7 @@ describe('MomentumServer', () => {
                         }).then(result => {
                             expect(typeof result).toBe('object');
                             expect(result.error).toBe('Invalid token wrong');
-                            done();
+                            momentum.stop().then(done);
                         });
                     }, 1500);
                 });
@@ -429,7 +449,7 @@ describe('MomentumServer', () => {
                                 }).then(result => {
                                     expect(typeof result).toBe('object');
                                     expect(result.error).toContain('Invalid token ' + token);
-                                    done();
+                                    momentum.stop().then(done);
                                 });
                             }, 100);
                         });
@@ -459,7 +479,7 @@ describe('MomentumServer', () => {
                         }).then(result => {
                             expect(typeof result).toBe('object');
                             expect(result.error).toContain('Invalid token ' + token);
-                            done();
+                            momentum.stop().then(done);
                         });
                     }, 1500);
                 });
@@ -489,7 +509,7 @@ describe('MomentumServer', () => {
                         expect(result.error).toBe('Missing collection name');
                         app.call('get', '/api/mm/on').then(result => {
                             expect(result.events[0].args[4].a).toBe(2);
-                            done();
+                            momentum.stop().then(done);
                         });
                         setTimeout(() => {
                             app.call('post', '/api/mm/listen', {
@@ -517,7 +537,7 @@ describe('MomentumServer', () => {
                         app.call('get', '/api/mm/ready').then(result => {
                             expect(typeof result).toBe('object');
                             expect(result.error).toBe('Too many connections');
-                            done();
+                            momentum.stop().then(done);
                         });
                     });
                 });
@@ -538,8 +558,7 @@ describe('MomentumServer', () => {
         momentum.start(8092);
         momentum.start(8092).then(() => {
             expect(typeof momentum.app.use).toBe('function');
-            momentum.stop();
-            done();
+            momentum.stop().then(done);
         });
     });
     it('should start and stop successfully with an app', done => {
@@ -548,8 +567,7 @@ describe('MomentumServer', () => {
 
         momentum.start(app).then(() => {
             expect(momentum.app).toBe(app);
-            momentum.stop();
-            done();
+            momentum.stop().then(done);
         });
     });
     it('should handle bad event argument', () => {
@@ -590,8 +608,7 @@ describe('MomentumServer', () => {
                                     expect(removed).toBe(true);
                                     expect(logs.length).toBe(3);
                                     expect(logs).toEqual(['insert', 'update-collection', 'remove-collection']);
-                                    momentum.stop();
-                                    done();
+                                    momentum.stop().then(done);
                                 });
                             });
                         });
@@ -614,8 +631,7 @@ describe('MomentumServer', () => {
             momentum.emit('foo');
             momentum.emit('bar');
             expect(count).toBe(5);
-            momentum.stop();
-            done();
+            momentum.stop().then(done);
         });
     });
     it('should handle grouped events', done => {
@@ -649,8 +665,7 @@ describe('MomentumServer', () => {
             momentum.emitEvent('updateItem', 'foo:1');
             momentum.emitEvent('removeItem', 'foo:1');
             expect(count).toBe(0);
-            momentum.stop();
-            done();
+            momentum.stop().then(done);
         });
     });
     it('should handle remove failure', done => {
@@ -663,8 +678,7 @@ describe('MomentumServer', () => {
                 error = err;
             }).then(() => {
                 expect(error + '').toBe('fake-error');
-                momentum.stop();
-                done();
+                momentum.stop().then(done);
             });
         });
     });

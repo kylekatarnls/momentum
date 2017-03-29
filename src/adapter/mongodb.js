@@ -35,9 +35,15 @@ class MongodbAdapter extends AdapterInterface {
     }
 
     stop() {
-        if (this.db) {
-            this.db.close();
-        }
+        return new Promise(resolve => {
+            if (this.db) {
+                this.db.close(resolve);
+
+                return;
+            }
+
+            resolve();
+        });
     }
 
     getItemId(item) {

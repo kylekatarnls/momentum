@@ -283,10 +283,11 @@ class MomentumServer {
             let group = null;
             const token = request.query.token;
             const eventsCollection = this.options.collectionPrefix + 'events';
-            const off = this.on('listen:' + token, (...args) => {
+            const off = this.on('listen:' + token, (collection, id, filter, ...args) => {
                 clearTimeout(timeout);
                 this.insertOne(eventsCollection, {
                     token,
+                    listen: {collection, id, filter},
                     args: JSON.stringify(args)
                 }).then(() => {
                     if (!group) {
@@ -303,7 +304,7 @@ class MomentumServer {
                                         })
                                     });
                                     end();
-                                    var ids = events.map(event => this.getItemId(event));
+                                    const ids = events.map(event => this.getItemId(event));
                                     this.remove(eventsCollection, this.getFilterFromItemId({$in: ids}));
                                 }
                             });
@@ -353,15 +354,16 @@ class MomentumServer {
                     }
                 }
                 let off;
+                const id = request.body.id;
                 const listener = (...args) => {
                     if (!filter) {
-                        this.emit('listen:' + token, ...args);
+                        this.emit('listen:' + token, collection, id, filter, ...args);
 
                         return;
                     }
 
-                    handler(args).then(args => {
-                        this.emit('listen:' + token, ...args);
+                    handler(args).then(newArgs => {
+                        this.emit('listen:' + token, collection, id, filter, ...newArgs);
                     });
                 };
                 const check = () => {
@@ -372,7 +374,6 @@ class MomentumServer {
                     }, this.options.timeOut);
                 };
                 check();
-                const id = request.body.id;
                 if (id) {
                     off = this.onItemTouched(collection, id, listener);
                     response.status(200).json({status: 'success'});
@@ -393,9 +394,21 @@ class MomentumServer {
         this.app.post(this.getUrlPrefix() + 'emit', bodyParser.json(), (request, response) => {
             const method = request.body.method;
             const args = request.body.args;
+            const end = (status, data) => {
+                const json = Object.assign({
+                    args,
+                    method
+                }, data);
+
+                if (method === 'insertOne') {
+                    args.push(this.getItemId(args[1]));
+                }
+
+                response.status(status).json(json);
+            };
 
             if (['insertOne', 'updateOne', 'remove'].indexOf(method) === -1) {
-                response.status(400).json({
+                end(400, {
                     error: method + ' method unknown'
                 });
 
@@ -403,7 +416,7 @@ class MomentumServer {
             }
 
             if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
-                response.status(403).json({
+                end(403, {
                     error: 'Arguments cannot be empty'
                 });
 
@@ -411,7 +424,7 @@ class MomentumServer {
             }
 
             if (!this.isAllowed('emit', method, args, request, response)) {
-                response.status(403).json({
+                end(403, {
                     error: method + ' not allowed with ' + JSON.stringify(args)
                 });
 
@@ -419,7 +432,8 @@ class MomentumServer {
             }
 
             this[method](...args).catch(error => ({error})).then(result => {
-                response.status(result.error ? 500 : 200).json(result);
+                // JSON stringify and parse remove all database dynamic properties
+                end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
             });
         });
     }
@@ -439,6 +453,7 @@ class MomentumServer {
         this.stop();
         this.setApplicationPort(appPort);
         this.linkApplication(app);
+        this.server = null;
         this.app = this.linkedApp || (() => {
             const expressApp = express();
             this.server = expressApp.listen(this.appPort);
@@ -463,15 +478,59 @@ class MomentumServer {
     }
 
     /**
+     * Stop the database adapter.
+     */
+    stopAdapter() {
+        return new Promise(resolve => {
+            if (this.adapter) {
+                const stopPromise = this.adapter.stop();
+                if (stopPromise instanceof Promise) {
+                    stopPromise.then(resolve).catch(resolve);
+
+                    return;
+                }
+            }
+
+            resolve();
+        });
+    }
+
+    /**
+     * Stop the database adapter.
+     */
+    stopServer() {
+        return new Promise(resolve => {
+            if (this.server) {
+                this.server.close(resolve);
+
+                return;
+            }
+
+            resolve();
+        });
+    }
+
+    /**
      * Stop the adapter and the momentum server.
      */
     stop() {
-        if (this.adapter) {
-            this.adapter.stop();
-        }
-        if (this.server) {
-            this.server.close();
-        }
+        return new Promise(resolve => {
+            let adapterStopped = !this.adapter;
+            let serverStopped = !this.server;
+            const next = () => {
+                if (adapterStopped && serverStopped) {
+                    resolve();
+                }
+            };
+            this.stopAdapter().then(() => {
+                adapterStopped = true;
+                next();
+            });
+            this.stopServer().then(() => {
+                serverStopped = true;
+                next();
+            });
+        });
     }
 
     on(events, ...args) {
@@ -592,15 +651,18 @@ class MomentumServer {
 
                 const ids = objects.map(obj => this.getItemId(obj));
                 const promise = this.adapter.remove(collection, filter, options);
-                promise.then(result => {
-                    const args = ['remove', collection, ids, filter, result];
-                    this.emitEvent('removeCollection', collection, ...args);
+                const callback = method => result => {
+                    const args = ['remove', collection, ids, filter];
+                    this[method]('removeCollection', collection, 'remove', result, ...args);
                     ids.forEach(id => {
                         const itemArgs = args.slice();
                         itemArgs[2] = id;
-                        this.emitEvent('removeItem', collection + ':' + id, ...itemArgs);
+                        this[method]('removeItem', collection + ':' + id, 'remove', result, ...itemArgs);
                     });
-                });
+                };
+                promise
+                    .then(callback('emitEvent'))
+                    .catch(callback('emitError'));
 
                 resolve(promise);
             });

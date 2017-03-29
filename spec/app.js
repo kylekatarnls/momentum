@@ -29,6 +29,21 @@ function App(app, log) {
         });
     });
     MomentumServer.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
+        momentum.addFilter('fruit', (...events) => {
+            return new Promise(resolve => {
+                resolve(...events.map(args => {
+                    const newArgs = args.slice();
+                    if (newArgs[3] === 'updateOne') {
+                        newArgs[1] = Object.assign({
+                            fruit: 'banana'
+                        }, newArgs[1]);
+                    }
+
+                    return newArgs;
+                }));
+
+            });
+        });
         log.info('Main server connected.');
         momentum.invalidateTokens({ip: {$in: ['phjs', '::1', '127.0.0.1']}});
     });

@@ -9,6 +9,7 @@ engines:
       - python
       - php
     exclude_paths:
+    - "spec/"
     - "**/*.spec.js"
     - "**/*.test.js"
   eslint:
