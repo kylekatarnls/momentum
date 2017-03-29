@@ -514,6 +514,8 @@ class MomentumServer {
      * Stop the adapter and the momentum server.
      */
     stop() {
+        this.isReady = false;
+
         return new Promise(resolve => {
             let adapterStopped = !this.adapter;
             let serverStopped = !this.server;
@@ -650,7 +652,7 @@ class MomentumServer {
                 }
 
                 const ids = objects.map(obj => this.getItemId(obj));
-                const promise = this.adapter.remove(collection, filter, options);
+                const promise = this.callAdapter('remove', collection, filter, options);
                 const callback = method => result => {
                     const args = ['remove', collection, ids, filter];
                     this[method]('removeCollection', collection, 'remove', result, ...args);
@@ -670,6 +672,22 @@ class MomentumServer {
     }
 
     /**
+     * Call adapter method if ready, else return a dead promise.
+     *
+     * @param {string} method
+     * @param {Array}  args
+     *
+     * @returns {Promise}
+     */
+    callAdapter(method, ...args) {
+        if (this.isReady) {
+            return this.adapter[method](...args);
+        }
+
+        return new Promise(() => {});
+    }
+
+    /**
      * Call a write method on the adapter and emit
      * corresponding events.
      *
@@ -679,8 +697,8 @@ class MomentumServer {
      *
      * @returns {Promise}
      */
-    callAdapter(method, args, events) {
-        const promise = this.adapter[method](...args);
+    callWithEvents(method, args, events) {
+        const promise = this.callAdapter(method, ...args);
         const callback = emitFunction => result => {
             events.forEach(event => {
                 emitFunction.call(this, ...event, method, result, ...args);
@@ -703,7 +721,7 @@ class MomentumServer {
      * @returns {Promise}
      */
     insertOne(collection, document, options) {
-        return this.callAdapter(
+        return this.callWithEvents(
             'insertOne', [
                 collection, document, options
             ],[
@@ -726,7 +744,7 @@ class MomentumServer {
         return this.findOne(collection, filter).then(obj => {
             const id = this.getItemId(obj);
             Object.assign(filter, this.getFilterFromItemId(id));
-            return this.callAdapter(
+            return this.callWithEvents(
                 'updateOne', [
                     collection, filter, update, options
                 ],[
@@ -767,7 +785,7 @@ class MomentumServer {
      * @returns {Promise}
      */
     count(...args) {
-        return this.adapter.count(...args);
+        return this.callAdapter('count', ...args);
     }
 
     /**
@@ -778,7 +796,7 @@ class MomentumServer {
      * @returns {Promise}
      */
     find(...args) {
-        return this.adapter.find(...args);
+        return this.callAdapter('find', ...args);
     }
 
     /**
@@ -789,7 +807,7 @@ class MomentumServer {
      * @returns {Promise}
      */
     findOne(...args) {
-        return this.adapter.findOne(...args);
+        return this.callAdapter('findOne', ...args);
     }
 }
 
