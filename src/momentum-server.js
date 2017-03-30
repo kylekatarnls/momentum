@@ -2,10 +2,10 @@ const net = require('net');
 const express = require('express');
 const bodyParser = require('body-parser');
 const randomString = require('randomstring');
-const mondogbAdapter = require('./adapter/mongodb');
+const mondogdbAdapter = require('./adapter/mongodb');
 const MomentumEventEmitter = require('./event/emitter');
 const adapters = {
-    mongodb: mondogbAdapter
+    mongodb: mondogdbAdapter
 };
 const createAdapterInstance = (...args) => {
     const names = Object.keys(adapters);
@@ -31,6 +31,7 @@ const eventTypes = {
 };
 
 class MomentumServer {
+
     /**
      * Init a momentum server with an adapter (arguments
      * are passed to the adapter constructor).
@@ -43,6 +44,7 @@ class MomentumServer {
         this.filters = {};
         this.options = {
             maxTokensPerIp: 16,
+            maxEventsListeners: 131072,
             timeOut: 120000,
             collectionPrefix: 'mm_'
         };
@@ -75,6 +77,7 @@ class MomentumServer {
     getEventsEmitter() {
         if (!this.eventsEmitter) {
             this.eventsEmitter = new MomentumEventEmitter();
+            this.eventsEmitter.setMaxListeners(this.options.maxEventsListeners);
         }
 
         return this.eventsEmitter;
@@ -520,7 +523,7 @@ class MomentumServer {
      */
     addEmitRoute() {
         this.addJsonRoute('emit', (request, response) => {
-            this.proxyDataBaseRequest(request, response, ['insertOne', 'updateOne', 'remove'], result => result);
+            this.proxyDataBaseRequest(request, response, ['insertOne', 'insertMany', 'updateOne', 'updateMany', 'remove'], result => result);
         });
     }
 

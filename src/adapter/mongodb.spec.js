@@ -13,7 +13,7 @@ describe('MongodbAdapter', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         expect(() => mongoAdapter.getCollection(null)).toThrow(new Error('Collection name must be a non-empty string'));
     });
-    it('should reject if start failed', (done) => {
+    it('should reject if start failed', done => {
         const mongoAdapter = new MongodbAdapter('mongodb://999.999.999.999:999/momentum');
         let error = null;
         mongoAdapter.start().catch(err => {
@@ -30,11 +30,24 @@ describe('MongodbAdapter', () => {
         expect(mongoAdapter.getItemId({_id: 'foo'})).toBe('foo');
         expect(mongoAdapter.getItemId(null)).toBe(undefined);
     });
+    it('should handle find failures', done => {
+        const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
+        mongoAdapter.start().then(() => {
+            const promise = mongoAdapter.find('foo', {});
+            promise.query.toArray = callback => {
+                callback('foobar');
+            };
+            promise.catch(error => {
+                expect(error).toBe('foobar');
+                done();
+            });
+        });
+    });
     it('should return a filter from an item id with getFilterFromItemId', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         expect(mongoAdapter.getFilterFromItemId('foo')).toEqual({_id: 'foo'});
     });
-    it('should store and get elements', (done) => {
+    it('should store and get elements', done => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
         mongoAdapter.start().then(() => {
             mongoAdapter.remove('unitTests', {}).then(status => {

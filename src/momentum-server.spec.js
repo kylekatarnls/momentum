@@ -83,6 +83,7 @@ describe('MomentumServer', () => {
                 'config',
                 'counters',
                 'magicans',
+                'jedis',
                 'people',
                 'table',
                 'unitTests'
@@ -291,6 +292,26 @@ describe('MomentumServer', () => {
                         }, 50);
                     });
                 }, 500);
+            });
+        });
+    });
+    it('should get data with /data route', done => {
+        MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
+            momentum.remove('jedis', {}).then(() => {
+                momentum.insertMany('jedis', [{name: 'Obi-Wan'}, {name: 'Yoda'}]).then(() => {
+                    momentum.find('jedis', {}).limit(2).then(jedis => {
+                        expect(jedis.length).toBe(2);
+                        var names = jedis.map(jedi => jedi.name).sort().join(', ');
+                        expect(names).toBe('Obi-Wan, Yoda');
+                        momentum.findOne('jedis', {name: 'Yoda'}).then(yoda => {
+                            expect(yoda.name).toBe('Yoda');
+                            momentum.count('jedis', {}).then(count => {
+                                expect(count).toBe(2);
+                                momentum.stop().then(done);
+                            });
+                        });
+                    });
+                });
             });
         });
     });
