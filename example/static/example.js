@@ -2,6 +2,9 @@ var momentum = new Momentum();
 momentum.onReady(function () {
     document.getElementById('status').innerHTML = 'ready';
     momentum.listenCollection('people');
+    momentum.find(['people'], function (data) {
+        console.log(data);
+    });
 });
 var stop = function () {};
 var start = function () {

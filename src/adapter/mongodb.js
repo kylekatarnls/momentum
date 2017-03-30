@@ -59,7 +59,54 @@ class MongodbAdapter extends AdapterInterface {
     }
 
     find(collection, ...args) {
-        return this.getCollection(collection).find(...args);
+        const query = this.getCollection(collection).find(...args);
+        let callee;
+        const promise = new Promise((resolve, reject) => {
+            callee = () => {
+                query.toArray((err, result) => {
+                    if (err) {
+                        reject(err);
+
+                        return;
+                    }
+
+                    resolve(result);
+                });
+            };
+        });
+        const call = () => {
+            if (callee) {
+                callee();
+                callee = null;
+            }
+        };
+        const _then = promise.then;
+        const _catch = promise.catch;
+        promise.query = query;
+        promise.sort = (...args) => {
+            query.sort(...args);
+
+            return promise;
+        };
+        promise.limit = (...args) => {
+            query.limit(...args);
+
+            return promise;
+        };
+        promise.then = (...args) => {
+            const result = _then.apply(promise, args);
+            call();
+
+            return result;
+        };
+        promise.catch = (...args) => {
+            const result = _catch.apply(promise, args);
+            call();
+
+            return result;
+        };
+
+        return promise;
     }
 
     findOne(collection, ...args) {

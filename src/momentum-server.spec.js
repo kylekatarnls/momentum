@@ -69,11 +69,9 @@ class FoobarAdapter extends AdapterInterface {
     }
 
     find() {
-        return {
-            toArray(callback) {
-                callback('fake-error', []);
-            }
-        }
+        return new Promise((resolve, reject) => {
+            reject('fake-error');
+        });
     }
 }
 
@@ -127,8 +125,7 @@ describe('MomentumServer', () => {
                 date: new Date()
             };
             momentum.adapter.insertOne('users', bob).then(() => {
-                momentum.adapter.find('users', {}).sort({date: -1}).limit(1).toArray((err, users) => {
-                    expect(err).toBe(null);
+                momentum.adapter.find('users', {}).sort({date: -1}).limit(1).then(users => {
                     expect(users.length).toBe(1);
                     expect(users[0].name).toBe('Bob');
                     momentum.adapter.stop().then(done);
@@ -403,7 +400,7 @@ describe('MomentumServer', () => {
     it('should check token on re-listen if changed', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
-        momentum.options.timeOut = 1000;
+        momentum.options.timeOut = 400;
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(() => {
                 app.call('post', '/api/mm/listen', {
@@ -413,6 +410,7 @@ describe('MomentumServer', () => {
                     expect(typeof result).toBe('object');
                     expect(result.status).toBe('success');
                     setTimeout(() => {
+                        const token = app.token;
                         app.token = 'wrong';
                         app.call('post', '/api/mm/listen', {
                             collection: 'foo',
@@ -420,9 +418,88 @@ describe('MomentumServer', () => {
                         }).then(result => {
                             expect(typeof result).toBe('object');
                             expect(result.error).toBe('Invalid token wrong');
-                            momentum.stop().then(done);
+                            app.token = token;
+                            app.call('post', '/api/mm/listen/stop', {
+                                id: '123'
+                            }).then(result => {
+                                expect(typeof result).toBe('object');
+                                expect(result.error).toBe('Missing collection name');
+                                app.call('get', '/api/mm/quit').then(result => {
+                                    expect(typeof result).toBe('object');
+                                    expect(result.status).toBe('success');
+                                    app.call('post', '/api/mm/listen/stop', {
+                                        collection: 'foo',
+                                        id: '123'
+                                    }).then(result => {
+                                        expect(typeof result).toBe('object');
+                                        expect(result.error).toBe('Invalid token ' + token);
+                                        momentum.stop().then(done);
+                                    });
+                                });
+                            });
                         });
-                    }, 1500);
+                    }, 800);
+                });
+            });
+        });
+    });
+    it('should check if quited before re-listen', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.options.timeOut = 400;
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                app.call('post', '/api/mm/listen', {
+                    collection: 'foo',
+                    id: '123'
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.status).toBe('success');
+                    app.call('get', '/api/mm/quit').then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.status).toBe('success');
+                        setTimeout(() => {
+                            momentum.stop().then(done);
+                        }, 800);
+                    });
+                });
+            });
+        });
+    });
+    it('should stop listening on /listen/stop route', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.options.timeOut = 400;
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/ready').then(() => {
+                app.call('post', '/api/mm/listen', {
+                    collection: 'foo',
+                    id: '123'
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.status).toBe('success');
+                    app.call('post', '/api/mm/listen/stop', {
+                        collection: 'foo',
+                        id: '123'
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.status).toBe('success');
+                        app.call('post', '/api/mm/listen', {
+                            collection: 'foo'
+                        }).then(result => {
+                            expect(typeof result).toBe('object');
+                            expect(result.status).toBe('success');
+                            app.call('post', '/api/mm/listen/stop', {
+                                collection: 'foo'
+                            }).then(result => {
+                                expect(typeof result).toBe('object');
+                                expect(result.status).toBe('success');
+                                setTimeout(() => {
+                                    momentum.stop().then(done);
+                                }, 800);
+                            });
+                        });
+                    });
                 });
             });
         });
@@ -449,7 +526,11 @@ describe('MomentumServer', () => {
                                 }).then(result => {
                                     expect(typeof result).toBe('object');
                                     expect(result.error).toContain('Invalid token ' + token);
-                                    momentum.stop().then(done);
+                                    app.call('get', '/api/mm/quit').then(result => {
+                                        expect(typeof result).toBe('object');
+                                        expect(result.error).toContain('Invalid token ' + token);
+                                        momentum.stop().then(done);
+                                    });
                                 });
                             }, 100);
                         });
@@ -587,8 +668,7 @@ describe('MomentumServer', () => {
                     expect(momentum.getItemId(config)).toBeDefined();
                     momentum.count('config', {type: 'main'}).then(count => {
                         expect(count).toBe(1);
-                        momentum.find('config', {type: 'main'}).toArray((err, configs) => {
-                            expect(err).toBe(null);
+                        momentum.find('config', {type: 'main'}).then((configs) => {
                             expect(configs.length).toBe(1);
                             expect(configs[0].value).toBe(3);
                             const id = configs[0]._id;

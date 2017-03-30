@@ -220,10 +220,24 @@ class MomentumServer {
     }
 
     /**
+     * Add a GET route with the url prefix.
+     */
+    addRoute(route, callback) {
+        this.app.get(this.getUrlPrefix() + route, callback);
+    }
+
+    /**
+     * Add a POST route with the url prefix and the JSON body-parser.
+     */
+    addJsonRoute(route, callback) {
+        this.app.post(this.getUrlPrefix() + route, bodyParser.json(), callback);
+    }
+
+    /**
      * Add the /ready route to the momentum server app.
      */
     addReadyRoute() {
-        this.app.get(this.getUrlPrefix() + 'ready', (request, response) => {
+        this.addRoute('ready', (request, response) => {
             const readyCallback = () => {
                 const ip = getIpFromRequest(request);
                 const tokens = this.options.collectionPrefix + 'tokens';
@@ -270,10 +284,33 @@ class MomentumServer {
     }
 
     /**
+     * Add the /quit route to the momentum server app.
+     */
+    addQuitRoute() {
+        this.addRoute('quit', (request, response) => {
+            const token = request.query.token;
+
+            this.isTokenValid(token).then(valid => {
+                if (!valid) {
+                    response.status(500).json({
+                        error: 'Invalid token ' + token
+                    });
+
+                    return;
+                }
+
+                this.invalidateTokens({token}).then(() => {
+                    response.status(200).json({status: 'success'});
+                });
+            });
+        });
+    }
+
+    /**
      * Add the /on route to the momentum server app.
      */
     addOnRoute() {
-        this.app.get(this.getUrlPrefix() + 'on', (request, response) => {
+        this.addRoute('on', (request, response) => {
             request.setTimeout(0);
             let end;
             let timeout = setTimeout(() => {
@@ -292,9 +329,9 @@ class MomentumServer {
                 }).then(() => {
                     if (!group) {
                         group = setTimeout(() => {
-                            this.find(eventsCollection, {token}).toArray((err, events) => {
+                            this.find(eventsCollection, {token}).then(events => {
                                 off();
-                                if (!err && events && !response.headersSent) {
+                                if (events && !response.headersSent) {
                                     response.status(200).json({
                                         events: events.map(event => {
                                             event.args = JSON.parse(event.args);
@@ -307,7 +344,7 @@ class MomentumServer {
                                     const ids = events.map(event => this.getItemId(event));
                                     this.remove(eventsCollection, this.getFilterFromItemId({$in: ids}));
                                 }
-                            });
+                            }).catch(off);
                         }, 200);
                     }
                 });
@@ -322,7 +359,7 @@ class MomentumServer {
      * Add the /listen route to the momentum server app.
      */
     addListenRoute() {
-        this.app.post(this.getUrlPrefix() + 'listen', bodyParser.json(), (request, response) => {
+        this.addJsonRoute('listen', (request, response) => {
             const token = request.body.token;
             const collection = request.body.collection;
             if (!collection) {
@@ -332,6 +369,7 @@ class MomentumServer {
 
                 return;
             }
+
             this.isTokenValid(token).then(valid => {
                 if (!valid) {
                     response.status(500).json({
@@ -383,7 +421,97 @@ class MomentumServer {
 
                 off = this.onCollectionTouched(collection, listener);
                 response.status(200).json({status: 'success'});
+
+                this.on('listen-stop:' + token + ',' + JSON.stringify([collection, id || '', filter || '']), off);
             });
+        });
+    }
+
+    /**
+     * Add the /listen/stop route to the momentum server app.
+     */
+    addListenStopRoute() {
+        this.addJsonRoute('listen/stop', (request, response) => {
+            const token = request.body.token;
+            const collection = request.body.collection;
+            if (!collection) {
+                response.status(400).json({
+                    error: 'Missing collection name'
+                });
+
+                return;
+            }
+
+            this.isTokenValid(token).then(valid => {
+                if (!valid) {
+                    response.status(500).json({
+                        error: 'Invalid token ' + token
+                    });
+
+                    return;
+                }
+
+                const filter = request.body.filter;
+                const id = request.body.id;
+                this.emit('listen-stop:' + token + ',' + JSON.stringify([collection, id || '', filter || '']));
+
+                response.status(200).json({status: 'success'});
+            });
+        });
+    }
+
+    /**
+     * Proxy request from HTTP API to database.
+     *
+     * @param {Object}   request
+     * @param {Object}   response
+     * @param {Array}    allowedMethods
+     * @param {Function} transform
+     */
+    proxyDataBaseRequest(request, response, allowedMethods, transform) {
+        const method = request.body.method;
+        const args = request.body.args;
+
+        const end = (status, data) => {
+            const json = Object.assign({
+                args,
+                method
+            }, data);
+
+            if (method === 'insertOne') {
+                args.push(this.getItemId(args[1]));
+            }
+
+            response.status(status).json(json);
+        };
+
+        if (allowedMethods.indexOf(method) === -1) {
+            end(400, {
+                error: method + ' method unknown'
+            });
+
+            return;
+        }
+
+        if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
+            end(403, {
+                error: 'Arguments cannot be empty'
+            });
+
+            return;
+        }
+
+        if (!this.isAllowed('emit', method, args, request, response)) {
+            end(403, {
+                error: method + ' not allowed with ' + JSON.stringify(args)
+            });
+
+            return;
+        }
+
+        this[method](...args).catch(error => ({error})).then(result => {
+            // JSON stringify and parse remove all database dynamic properties
+            end(result.error ? 500 : 200, JSON.parse(JSON.stringify(transform(result))));
         });
     }
 
@@ -391,50 +519,17 @@ class MomentumServer {
      * Add the /emit route to the momentum server app.
      */
     addEmitRoute() {
-        this.app.post(this.getUrlPrefix() + 'emit', bodyParser.json(), (request, response) => {
-            const method = request.body.method;
-            const args = request.body.args;
-            const end = (status, data) => {
-                const json = Object.assign({
-                    args,
-                    method
-                }, data);
+        this.addJsonRoute('emit', (request, response) => {
+            this.proxyDataBaseRequest(request, response, ['insertOne', 'updateOne', 'remove'], result => result);
+        });
+    }
 
-                if (method === 'insertOne') {
-                    args.push(this.getItemId(args[1]));
-                }
-
-                response.status(status).json(json);
-            };
-
-            if (['insertOne', 'updateOne', 'remove'].indexOf(method) === -1) {
-                end(400, {
-                    error: method + ' method unknown'
-                });
-
-                return;
-            }
-
-            if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
-                end(403, {
-                    error: 'Arguments cannot be empty'
-                });
-
-                return;
-            }
-
-            if (!this.isAllowed('emit', method, args, request, response)) {
-                end(403, {
-                    error: method + ' not allowed with ' + JSON.stringify(args)
-                });
-
-                return;
-            }
-
-            this[method](...args).catch(error => ({error})).then(result => {
-                // JSON stringify and parse remove all database dynamic properties
-                end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
-            });
+    /**
+     * Add the /emit route to the momentum server app.
+     */
+    addDataRoute() {
+        this.addJsonRoute('data', (request, response) => {
+            this.proxyDataBaseRequest(request, response, ['findOne', 'find', 'count'], result => ({result}));
         });
     }
 
@@ -461,8 +556,11 @@ class MomentumServer {
             return expressApp;
         })();
         this.addReadyRoute();
+        this.addQuitRoute();
         this.addOnRoute();
+        this.addDataRoute();
         this.addListenRoute();
+        this.addListenStopRoute();
         this.addEmitRoute();
         this.initializeEventsEmitter();
         const start = this.adapter.start();
@@ -644,17 +742,11 @@ class MomentumServer {
      */
     remove(collection, filter, options) {
         return new Promise((resolve, reject) => {
-            this.find(collection, filter).toArray((err, objects) => {
-                if (err) {
-                    reject(err);
-
-                    return;
-                }
-
+            this.find(collection, filter).then(objects => {
                 const ids = objects.map(obj => this.getItemId(obj));
                 const promise = this.callAdapter('remove', collection, filter, options);
                 const callback = method => result => {
-                    const args = ['remove', collection, ids, filter];
+                    const args = ['remove', collection, ids, filter, options];
                     this[method]('removeCollection', collection, 'remove', result, ...args);
                     ids.forEach(id => {
                         const itemArgs = args.slice();
@@ -667,7 +759,7 @@ class MomentumServer {
                     .catch(callback('emitError'));
 
                 resolve(promise);
-            });
+            }).catch(reject);
         });
     }
 
@@ -731,6 +823,25 @@ class MomentumServer {
     }
 
     /**
+     * Insert one item.
+     *
+     * @param {string} collection
+     * @param {Array}  documents
+     * @param {Object} options
+     *
+     * @returns {Promise}
+     */
+    insertMany(collection, documents, options) {
+        return this.callWithEvents(
+            'insertMany', [
+                collection, documents, options
+            ], [
+                ['insert', collection]
+            ]
+        );
+    }
+
+    /**
      * Update one item.
      *
      * @param {string} collection
@@ -752,6 +863,39 @@ class MomentumServer {
                     ['updateItem', collection + ':' + id, obj, id]
                 ]
             );
+        });
+    }
+
+    /**
+     * Update many items.
+     *
+     * @param {string} collection
+     * @param {Object} filter
+     * @param {Object} update
+     * @param {Object} options
+     *
+     * @returns {Promise}
+     */
+    updateMany(collection, filter, update, options) {
+        return new Promise((resolve, reject) => {
+            this.find(collection, filter).then(objects => {
+                const ids = objects.map(obj => this.getItemId(obj));
+                const promise = this.callAdapter('updateMany', collection, filter, update, options);
+                const callback = method => result => {
+                    const args = ['updateMany', collection, ids, filter, update, options];
+                    this[method]('updateCollection', collection, 'updateMany', result, ...args);
+                    ids.forEach(id => {
+                        const itemArgs = args.slice();
+                        itemArgs[2] = id;
+                        this[method]('updateItem', collection + ':' + id, 'updateMany', result, ...itemArgs);
+                    });
+                };
+                promise
+                    .then(callback('emitEvent'))
+                    .catch(callback('emitError'));
+
+                resolve(promise);
+            }).catch(reject);
         });
     }
 
