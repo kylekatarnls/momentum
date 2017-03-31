@@ -111,11 +111,9 @@ class MomentumServer {
      * @return {Function<Promise>}
      */
     getAuthorizationStrategy() {
-        return this.authorizationStrategy || (() => {
-            return new Promise(resolve => {
-                resolve(true);
-            });
-        });
+        return this.authorizationStrategy || (() => new Promise(resolve => {
+            resolve(true);
+        }));
     }
 
     /**
@@ -512,10 +510,13 @@ class MomentumServer {
             return;
         }
 
-        this[method](...args).catch(error => ({error})).then(result => {
-            // JSON stringify and parse remove all database dynamic properties
-            end(result.error ? 500 : 200, JSON.parse(JSON.stringify(transform(result))));
-        });
+        this[method](...args)
+            .then(result => transform(result))
+            .catch(error => ({error}))
+            .then(result => {
+                // JSON stringify and parse remove all database dynamic properties
+                end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
+            });
     }
 
     /**
@@ -523,7 +524,15 @@ class MomentumServer {
      */
     addEmitRoute() {
         this.addJsonRoute('emit', (request, response) => {
-            this.proxyDataBaseRequest(request, response, ['insertOne', 'insertMany', 'updateOne', 'updateMany', 'remove'], result => result);
+            this.proxyDataBaseRequest(request, response, [
+                'insertOne',
+                'insertMany',
+                'updateOne',
+                'updateMany',
+                'remove'
+            ], result => Object.assign({
+                result: result.result
+            }, result));
         });
     }
 
@@ -532,7 +541,11 @@ class MomentumServer {
      */
     addDataRoute() {
         this.addJsonRoute('data', (request, response) => {
-            this.proxyDataBaseRequest(request, response, ['findOne', 'find', 'count'], result => ({result}));
+            this.proxyDataBaseRequest(request, response, [
+                'findOne',
+                'find',
+                'count'
+            ], result => ({result}));
         });
     }
 
@@ -552,12 +565,7 @@ class MomentumServer {
         this.setApplicationPort(appPort);
         this.linkApplication(app);
         this.server = null;
-        this.app = this.linkedApp || (() => {
-            const expressApp = express();
-            this.server = expressApp.listen(this.appPort);
-
-            return expressApp;
-        })();
+        this.app = this.linkedApp || this.startServer();
         this.addReadyRoute();
         this.addQuitRoute();
         this.addOnRoute();
@@ -566,7 +574,7 @@ class MomentumServer {
         this.addListenStopRoute();
         this.addEmitRoute();
         this.initializeEventsEmitter();
-        const start = this.adapter.start();
+        const start = this.startAdapter();
         start.then(() => {
             this.isReady = true;
             this.readyPromises.forEach(promise => {
@@ -576,6 +584,13 @@ class MomentumServer {
         });
 
         return start;
+    }
+
+    /**
+     * Start the database adapter.
+     */
+    startAdapter() {
+        return this.adapter.start();
     }
 
     /**
@@ -597,12 +612,24 @@ class MomentumServer {
     }
 
     /**
-     * Stop the database adapter.
+     * Start a stand-alone express server.
+     */
+    startServer() {
+        const expressApp = express();
+        this.server = expressApp.listen(this.appPort);
+
+        return expressApp;
+    }
+
+    /**
+     * Stop the express server (if stand-alone).
      */
     stopServer() {
         return new Promise(resolve => {
             if (this.server) {
-                this.server.close(resolve);
+                this.server.close(() => {
+                    resolve();
+                });
 
                 return;
             }
@@ -819,7 +846,7 @@ class MomentumServer {
         return this.callWithEvents(
             'insertOne', [
                 collection, document, options
-            ],[
+            ], [
                 ['insert', collection]
             ]
         );
@@ -861,7 +888,7 @@ class MomentumServer {
             return this.callWithEvents(
                 'updateOne', [
                     collection, filter, update, options
-                ],[
+                ], [
                     ['updateCollection', collection, obj, id],
                     ['updateItem', collection + ':' + id, obj, id]
                 ]

@@ -209,7 +209,7 @@ describe('MomentumServer', () => {
                             args: ['config', {a: 1}]
                         }).then(result => {
                             expect(typeof result).toBe('object');
-                            expect(result.ok).toBe(1);
+                            expect(result.result.ok).toBe(1);
                         });
                     });
                 }, 500);
@@ -296,18 +296,51 @@ describe('MomentumServer', () => {
         });
     });
     it('should get data with /data route', done => {
-        MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.start(app).then(() => {
             momentum.remove('jedis', {}).then(() => {
                 momentum.insertMany('jedis', [{name: 'Obi-Wan'}, {name: 'Yoda'}]).then(() => {
                     momentum.find('jedis', {}).limit(2).then(jedis => {
                         expect(jedis.length).toBe(2);
                         var names = jedis.map(jedi => jedi.name).sort().join(', ');
                         expect(names).toBe('Obi-Wan, Yoda');
-                        momentum.findOne('jedis', {name: 'Yoda'}).then(yoda => {
-                            expect(yoda.name).toBe('Yoda');
-                            momentum.count('jedis', {}).then(count => {
-                                expect(count).toBe(2);
-                                momentum.stop().then(done);
+                        var HaveSort = function () {
+                            this.limit = [2];
+                        };
+                        HaveSort.prototype.sort = [{name: -1}];
+                        momentum.find('jedis', {}, {}, new HaveSort()).then(jedis => {
+                            expect(jedis.length).toBe(2);
+                            var names = jedis.map(jedi => jedi.name).join(', ');
+                            expect(names).toBe('Obi-Wan, Yoda');
+                            momentum.find('jedis', {}, {}, {sort: [{name: -1}], limit: [2]}).then(jedis => {
+                                expect(jedis.length).toBe(2);
+                                var names = jedis.map(jedi => jedi.name).join(', ');
+                                expect(names).toBe('Yoda, Obi-Wan');
+                                momentum.findOne('jedis', {name: 'Yoda'}).then(yoda => {
+                                    expect(yoda.name).toBe('Yoda');
+                                    momentum.count('jedis', {}).then(count => {
+                                        expect(count).toBe(2);
+                                        app.call('post', '/api/mm/data', {
+                                            method: 'count',
+                                            args: ['jedis']
+                                        }).then(count => {
+                                            expect(typeof count).toBe('object');
+                                            expect(count.result).toEqual(2);
+                                            app.call('post', '/api/mm/emit', {
+                                                method: 'updateMany',
+                                                args: ['jedis', {name: 'Obi-Wan'}, {$set: {name: 'Ben'}}]
+                                            }).then(() => {
+                                                momentum.find('jedis', {}).limit(2).then(jedis => {
+                                                    expect(jedis.length).toBe(2);
+                                                    var names = jedis.map(jedi => jedi.name).sort().join(', ');
+                                                    expect(names).toBe('Ben, Yoda');
+                                                    momentum.stop().then(done);
+                                                });
+                                            });
+                                        });
+                                    });
+                                });
                             });
                         });
                     });
