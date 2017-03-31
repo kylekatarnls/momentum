@@ -26,11 +26,11 @@
 </head>
 <body>
     <div id="status" class="block">Loading</div>
-    <pre id="add-callback" class="block"></pre>
+    <pre id="people" class="block"></pre>
     <pre id="log" class="block"></pre>
-    <form class="block">
+    <form class="block" onsubmit="add(); return false;">
         <label>Add a person: <input type="text" id="name"></label>
-        <input type="button" value="Add" onclick="add()">
+        <input type="submit" value="Add">
     </form>
     <form class="block">
         <input type="button" value="Stop momentum listener" onclick="stop()">
