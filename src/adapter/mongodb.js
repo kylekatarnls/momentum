@@ -58,8 +58,8 @@ class MongodbAdapter extends AdapterInterface {
         return this.getCollection(collection).count(...args);
     }
 
-    find(collection, ...args) {
-        const query = this.getCollection(collection).find(...args);
+    find(collection, filter, projection, methods) {
+        const query = this.getCollection(collection).find(filter, projection);
         let callee;
         const promise = new Promise((resolve, reject) => {
             callee = () => {
@@ -93,6 +93,11 @@ class MongodbAdapter extends AdapterInterface {
 
             return promise;
         };
+        for (let method in methods) {
+            if (methods.hasOwnProperty(method)) {
+                promise[method](...methods[method]);
+            }
+        }
         promise.then = (...args) => {
             const result = _then.apply(promise, args);
             call();

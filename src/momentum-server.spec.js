@@ -427,14 +427,16 @@ describe('MomentumServer', () => {
                                 app.call('get', '/api/mm/quit').then(result => {
                                     expect(typeof result).toBe('object');
                                     expect(result.status).toBe('success');
-                                    app.call('post', '/api/mm/listen/stop', {
-                                        collection: 'foo',
-                                        id: '123'
-                                    }).then(result => {
-                                        expect(typeof result).toBe('object');
-                                        expect(result.error).toBe('Invalid token ' + token);
-                                        momentum.stop().then(done);
-                                    });
+                                    setTimeout(() => {
+                                        app.call('post', '/api/mm/listen/stop', {
+                                            collection: 'foo',
+                                            id: '123'
+                                        }).then(result => {
+                                            expect(typeof result).toBe('object');
+                                            expect(result.error).toBe('Invalid token ' + token);
+                                            momentum.stop().then(done);
+                                        });
+                                    }, 200);
                                 });
                             });
                         });
