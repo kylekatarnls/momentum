@@ -8,10 +8,21 @@ app.use(express.static(path.resolve(__dirname, 'static')));
 app.use(express.static(path.resolve(__dirname, '../lib')));
 
 MomentumServer.connect(app, 'mongodb://localhost:27017/momentum').then(momentum => {
-    setInterval(() => {
-        const date = new Date();
-        date.setTime(date.getTime() - 60000);
-        momentum.remove('pointers', {date: {$lt: date}});
-    }, 5000);
+    momentum.setAuthorizationStrategy((mode, method, args) => {
+        return new Promise(resolve => {
+            // For people collection
+            if (args[0] === 'people') {
+                // Allow both:
+                //  - data mode = read operations (find, findOne, count)
+                //  - insertOne
+                resolve(mode === 'data' || method === 'insertOne');
+
+                return;
+            }
+
+            // Disallow any command on other collections
+            resolve(false);
+        });
+    });
     opn('http://localhost:8091');
 });

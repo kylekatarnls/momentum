@@ -67,7 +67,7 @@ class MomentumServer {
      * @param app
      * @param args
      *
-     * @returns {Promise.<TResult>}
+     * @returns {Promise.<MomentumServer>}
      */
     static connect(app, ...args) {
         const momentum = new MomentumServer(...args);
@@ -480,59 +480,71 @@ class MomentumServer {
     /**
      * Proxy request from HTTP API to database.
      *
+     * @param {string}   mode
      * @param {Object}   request
      * @param {Object}   response
      * @param {Array}    allowedMethods
      * @param {Function} transform
      */
-    proxyDataBaseRequest(request, response, allowedMethods, transform) {
+    proxyDataBaseRequest(mode, request, response, allowedMethods, transform) {
         const method = request.body.method;
         const args = request.body.args;
+        const token = request.body.token;
 
-        const end = (status, data) => {
-            const json = Object.assign({
-                args,
-                method
-            }, data);
+        this.isTokenValid(token).then(valid => {
+            if (!valid) {
+                response.status(500).json({
+                    error: 'Invalid token ' + token
+                });
 
-            if (method === 'insertOne') {
-                args.push(this.getItemId(args[1]));
+                return;
             }
 
-            response.status(status).json(json);
-        };
+            const end = (status, data) => {
+                const json = Object.assign({
+                    args,
+                    method
+                }, data);
 
-        if (allowedMethods.indexOf(method) === -1) {
-            end(400, {
-                error: method + ' method unknown'
-            });
+                if (method === 'insertOne') {
+                    args.push(this.getItemId(args[1]));
+                }
 
-            return;
-        }
+                response.status(status).json(json);
+            };
 
-        if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
-            end(403, {
-                error: 'Arguments cannot be empty'
-            });
+            if (allowedMethods.indexOf(method) === -1) {
+                end(400, {
+                    error: method + ' method unknown'
+                });
 
-            return;
-        }
+                return;
+            }
 
-        if (!this.isAllowed('emit', method, args, request, response)) {
-            end(403, {
-                error: method + ' not allowed with ' + JSON.stringify(args)
-            });
+            if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
+                end(403, {
+                    error: 'Arguments cannot be empty'
+                });
 
-            return;
-        }
+                return;
+            }
 
-        this[method](...args)
-            .then(result => transform(result))
-            .catch(error => ({error}))
-            .then(result => {
-                // JSON stringify and parse remove all database dynamic properties
-                end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
-            });
+            if (!this.isAllowed(mode, method, args, request, response)) {
+                end(403, {
+                    error: method + ' not allowed with ' + JSON.stringify(args)
+                });
+
+                return;
+            }
+
+            this[method](...args)
+                .then(result => transform(result))
+                .catch(error => ({error}))
+                .then(result => {
+                    // JSON stringify and parse remove all database dynamic properties
+                    end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
+                });
+        });
     }
 
     /**
@@ -540,7 +552,7 @@ class MomentumServer {
      */
     addEmitRoute() {
         this.addJsonRoute('emit', (request, response) => {
-            this.proxyDataBaseRequest(request, response, [
+            this.proxyDataBaseRequest('emit', request, response, [
                 'insertOne',
                 'insertMany',
                 'updateOne',
@@ -557,7 +569,7 @@ class MomentumServer {
      */
     addDataRoute() {
         this.addJsonRoute('data', (request, response) => {
-            this.proxyDataBaseRequest(request, response, [
+            this.proxyDataBaseRequest('data', request, response, [
                 'findOne',
                 'find',
                 'count'

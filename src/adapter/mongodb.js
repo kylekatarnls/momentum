@@ -80,8 +80,6 @@ class MongodbAdapter extends AdapterInterface {
                 callee = null;
             }
         };
-        const _then = promise.then;
-        const _catch = promise.catch;
         promise.query = query;
         promise.sort = (...args) => {
             query.sort(...args);
@@ -98,18 +96,14 @@ class MongodbAdapter extends AdapterInterface {
                 promise[method](...methods[method]);
             }
         }
-        promise.then = (...args) => {
-            const result = _then.apply(promise, args);
+        const wrap = method => (...args) => {
+            const result = method.apply(promise, args);
             call();
 
             return result;
         };
-        promise.catch = (...args) => {
-            const result = _catch.apply(promise, args);
-            call();
-
-            return result;
-        };
+        promise.then = wrap(promise.then);
+        promise.catch = wrap(promise.catch);
 
         return promise;
     }
