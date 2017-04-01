@@ -52,10 +52,23 @@ class MomentumServer {
         this.initializeEventsEmitter();
     }
 
+    /**
+     * Add a database adapter.
+     *
+     * @param {string}           name
+     * @param {AdapterInterface} adapter
+     */
     static addAdapter(name, adapter) {
         adapters[name] = adapter;
     }
 
+    /**
+     *
+     * @param app
+     * @param args
+     *
+     * @returns {Promise.<TResult>}
+     */
     static connect(app, ...args) {
         const momentum = new MomentumServer(...args);
 
@@ -72,6 +85,9 @@ class MomentumServer {
     }
 
     /**
+     * Get the current momentum event emitter.
+     * Instantiate it if not yet exist.
+     *
      * @return {MomentumEventEmitter}
      */
     getEventsEmitter() {
@@ -663,13 +679,24 @@ class MomentumServer {
         });
     }
 
+    /**
+     * Listen events and return a function to stop listening with
+     * calling it.
+     *
+     * @param {Array} events
+     * @param {Array} args
+     *
+     * @returns {Function}
+     */
     on(events, ...args) {
         if (!events) {
             throw new Error('event must be a string or an array');
         }
+
         if (!events.forEach) {
             events = [events];
         }
+
         events.forEach(event => {
             this.getEventsEmitter().on(event, ...args);
         });
@@ -681,10 +708,28 @@ class MomentumServer {
         };
     }
 
+    /**
+     * Listen a momentum event from the eventTypes list.
+     *
+     * @param {string} eventKey
+     * @param {string} eventParam
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onEvent(eventKey, eventParam, args) {
         return this.on(eventTypes[eventKey] + ':' + eventParam, ...args);
     }
 
+    /**
+     * Listen events that touch a given collection
+     * (update, remove, insert).
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onCollectionTouched(collection, ...args) {
         const offCollectionUpdate = this.onCollectionUpdate(collection, ...args);
         const offCollectionRemove = this.onCollectionRemove(collection, ...args);
@@ -697,6 +742,16 @@ class MomentumServer {
         };
     }
 
+    /**
+     * Listen events that touch a given collection
+     * item (update, remove).
+     *
+     * @param {string} collection
+     * @param {string} item
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onItemTouched(collection, item, ...args) {
         const offItemRemove = this.onItemRemove(collection, item, ...args);
         const offItemUpdate = this.onItemUpdate(collection, item, ...args);
@@ -707,32 +762,81 @@ class MomentumServer {
         };
     }
 
+    /**
+     * Listen collection update event.
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onCollectionUpdate(collection, ...args) {
         return this.onEvent('updateCollection', collection, args);
     }
 
+    /**
+     * Listen collection item update event.
+     *
+     * @param {string} collection
+     * @param {string} item
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onItemUpdate(collection, item, ...args) {
         return this.onEvent('updateItem', collection + ':' + item, args);
     }
 
+    /**
+     * Listen collection remove event.
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onCollectionRemove(collection, ...args) {
         return this.onEvent('removeCollection', collection, args);
     }
 
+    /**
+     * Listen collection item remove event.
+     *
+     * @param {string} collection
+     * @param {string} item
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onItemRemove(collection, item, ...args) {
         return this.onEvent('removeItem', collection + ':' + item, args);
     }
 
+    /**
+     * Listen collection insert event.
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onInsert(collection, ...args) {
         return this.onEvent('insert', collection, args);
     }
 
+    /**
+     * Emit an event.
+     *
+     * @param {Array} args
+     *
+     * @returns this
+     */
     emit(...args) {
         return this.getEventsEmitter().emit(...args);
     }
 
     /**
-     * Emit an event.
+     * Emit a momentum event from eventTypes list.
      *
      * @param {string} eventKey
      * @param {Object} eventParam
@@ -762,6 +866,25 @@ class MomentumServer {
     }
 
     /**
+     * Emit event/error for each item id.
+     *
+     * @param {Array}  ids
+     * @param {string} method
+     * @param {string} itemEvent
+     * @param {string} collection
+     * @param {string} event
+     * @param {Object} result
+     * @param {Array}  args
+     */
+    emitForEachItem(ids, method, itemEvent, collection, event, result, ...args) {
+        ids.forEach(id => {
+            const itemArgs = args.slice();
+            itemArgs[2] = id;
+            this[method](itemEvent, collection + ':' + id, event, result, ...itemArgs);
+        });
+    }
+
+    /**
      * Remove items.
      *
      * @param {string} collection
@@ -778,11 +901,7 @@ class MomentumServer {
                 const callback = method => result => {
                     const args = ['remove', collection, ids, filter, options];
                     this[method]('removeCollection', collection, 'remove', result, ...args);
-                    ids.forEach(id => {
-                        const itemArgs = args.slice();
-                        itemArgs[2] = id;
-                        this[method]('removeItem', collection + ':' + id, 'remove', result, ...itemArgs);
-                    });
+                    this.emitForEachItem(ids, method, 'removeItem', collection, 'remove', result, ...args);
                 };
                 promise
                     .then(callback('emitEvent'))
@@ -914,11 +1033,7 @@ class MomentumServer {
                 const callback = method => result => {
                     const args = ['updateMany', collection, ids, filter, update, options];
                     this[method]('updateCollection', collection, 'updateMany', result, ...args);
-                    ids.forEach(id => {
-                        const itemArgs = args.slice();
-                        itemArgs[2] = id;
-                        this[method]('updateItem', collection + ':' + id, 'updateMany', result, ...itemArgs);
-                    });
+                    this.emitForEachItem(ids, method, 'updateItem', collection, 'updateMany', result, ...args);
                 };
                 promise
                     .then(callback('emitEvent'))
