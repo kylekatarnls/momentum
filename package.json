@@ -1,6 +1,6 @@
 {
   "name": "momentum-js",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Instant binding between server and connected clients",
   "main": "index.js",
   "scripts": {
