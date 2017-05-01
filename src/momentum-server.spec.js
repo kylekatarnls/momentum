@@ -80,6 +80,7 @@ describe('MomentumServer', () => {
         MomentumServer.connect(emulateApp(), 'mongodb://localhost:27017/momentum').then(momentum => {
             const collections = [
                 'aatokens',
+                'animals',
                 'config',
                 'counters',
                 'magicans',

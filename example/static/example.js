@@ -28,12 +28,7 @@ var add = function () {
 };
 momentum.onReady(function () {
     var configField = document.getElementById('config');
-    var getConfigIdentity = function (config) {
-        return {
-            counter: config.counter
-        };
-    };
-    momentum.getCollection(['exampleConfig'], getConfigIdentity, function (config) {
+    momentum.getCollection('exampleConfig', function (config) {
         if (!config.length) {
             config.insertOne({
                 counter: 1,
