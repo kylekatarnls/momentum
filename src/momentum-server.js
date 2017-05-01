@@ -52,10 +52,23 @@ class MomentumServer {
         this.initializeEventsEmitter();
     }
 
+    /**
+     * Add a database adapter.
+     *
+     * @param {string}           name
+     * @param {AdapterInterface} adapter
+     */
     static addAdapter(name, adapter) {
         adapters[name] = adapter;
     }
 
+    /**
+     *
+     * @param app
+     * @param args
+     *
+     * @returns {Promise.<MomentumServer>}
+     */
     static connect(app, ...args) {
         const momentum = new MomentumServer(...args);
 
@@ -72,6 +85,9 @@ class MomentumServer {
     }
 
     /**
+     * Get the current momentum event emitter.
+     * Instantiate it if not yet exist.
+     *
      * @return {MomentumEventEmitter}
      */
     getEventsEmitter() {
@@ -484,60 +500,72 @@ class MomentumServer {
     /**
      * Proxy request from HTTP API to database.
      *
+     * @param {string}   mode
      * @param {Object}   request
      * @param {Object}   response
      * @param {Array}    allowedMethods
      * @param {Function} transform
      */
-    proxyDataBaseRequest(request, response, allowedMethods, transform) {
+    proxyDataBaseRequest(mode, request, response, allowedMethods, transform) {
         const method = request.body.method;
         const args = request.body.args;
+        const token = request.body.token;
 
-        const end = (status, data) => {
-            const json = Object.assign({
-                args,
-                method
-            }, data);
-
-            if (method === 'insertOne') {
-                args.push(this.getItemId(args[1]));
-            }
-
-            response.status(status).json(json);
-        };
-
-        if (allowedMethods.indexOf(method) === -1) {
-            end(400, {
-                error: method + ' method unknown'
-            });
-
-            return;
-        }
-
-        if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
-            end(403, {
-                error: 'Arguments cannot be empty'
-            });
-
-            return;
-        }
-
-        this.isAllowed('emit', method, args, request, response).then(isAllowed => {
-            if (!isAllowed) {
-                end(403, {
-                    error: method + ' not allowed with ' + JSON.stringify(args)
+        this.isTokenValid(token).then(valid => {
+            if (!valid) {
+                response.status(500).json({
+                    error: 'Invalid token ' + token
                 });
 
                 return;
             }
 
-            this[method](...args)
-                .then(result => transform(result))
-                .catch(error => ({error}))
-                .then(result => {
-                    // JSON stringify and parse remove all database dynamic properties
-                    end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
+            const end = (status, data) => {
+                const json = Object.assign({
+                    args,
+                    method
+                }, data);
+
+                if (method === 'insertOne') {
+                    args.push(this.getItemId(args[1]));
+                }
+
+                response.status(status).json(json);
+            };
+
+            if (allowedMethods.indexOf(method) === -1) {
+                end(400, {
+                    error: method + ' method unknown'
                 });
+
+                return;
+            }
+
+            if (typeof request.body.args !== 'object' || request.body.args.length < 1) {
+                end(403, {
+                    error: 'Arguments cannot be empty'
+                });
+
+                return;
+            }
+
+            this.isAllowed('emit', method, args, request, response).then(isAllowed => {
+                if (!isAllowed) {
+                    end(403, {
+                        error: method + ' not allowed with ' + JSON.stringify(args)
+                    });
+
+                    return;
+                }
+
+                this[method](...args)
+                    .then(result => transform(result))
+                    .catch(error => ({error}))
+                    .then(result => {
+                        // JSON stringify and parse remove all database dynamic properties
+                        end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
+                    });
+            });
         });
     }
 
@@ -546,7 +574,7 @@ class MomentumServer {
      */
     addEmitRoute() {
         this.addJsonRoute('emit', (request, response) => {
-            this.proxyDataBaseRequest(request, response, [
+            this.proxyDataBaseRequest('emit', request, response, [
                 'insertOne',
                 'insertMany',
                 'updateOne',
@@ -563,7 +591,7 @@ class MomentumServer {
      */
     addDataRoute() {
         this.addJsonRoute('data', (request, response) => {
-            this.proxyDataBaseRequest(request, response, [
+            this.proxyDataBaseRequest('data', request, response, [
                 'findOne',
                 'find',
                 'count'
@@ -685,13 +713,24 @@ class MomentumServer {
         });
     }
 
+    /**
+     * Listen events and return a function to stop listening with
+     * calling it.
+     *
+     * @param {Array} events
+     * @param {Array} args
+     *
+     * @returns {Function}
+     */
     on(events, ...args) {
         if (!events) {
             throw new Error('event must be a string or an array');
         }
+
         if (!events.forEach) {
             events = [events];
         }
+
         events.forEach(event => {
             this.getEventsEmitter().on(event, ...args);
         });
@@ -703,10 +742,28 @@ class MomentumServer {
         };
     }
 
+    /**
+     * Listen a momentum event from the eventTypes list.
+     *
+     * @param {string} eventKey
+     * @param {string} eventParam
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onEvent(eventKey, eventParam, args) {
         return this.on(eventTypes[eventKey] + ':' + eventParam, ...args);
     }
 
+    /**
+     * Listen events that touch a given collection
+     * (update, remove, insert).
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onCollectionTouched(collection, ...args) {
         const offCollectionUpdate = this.onCollectionUpdate(collection, ...args);
         const offCollectionRemove = this.onCollectionRemove(collection, ...args);
@@ -719,6 +776,16 @@ class MomentumServer {
         };
     }
 
+    /**
+     * Listen events that touch a given collection
+     * item (update, remove).
+     *
+     * @param {string} collection
+     * @param {string} item
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onItemTouched(collection, item, ...args) {
         const offItemRemove = this.onItemRemove(collection, item, ...args);
         const offItemUpdate = this.onItemUpdate(collection, item, ...args);
@@ -729,32 +796,81 @@ class MomentumServer {
         };
     }
 
+    /**
+     * Listen collection update event.
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onCollectionUpdate(collection, ...args) {
         return this.onEvent('updateCollection', collection, args);
     }
 
+    /**
+     * Listen collection item update event.
+     *
+     * @param {string} collection
+     * @param {string} item
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onItemUpdate(collection, item, ...args) {
         return this.onEvent('updateItem', collection + ':' + item, args);
     }
 
+    /**
+     * Listen collection remove event.
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onCollectionRemove(collection, ...args) {
         return this.onEvent('removeCollection', collection, args);
     }
 
+    /**
+     * Listen collection item remove event.
+     *
+     * @param {string} collection
+     * @param {string} item
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onItemRemove(collection, item, ...args) {
         return this.onEvent('removeItem', collection + ':' + item, args);
     }
 
+    /**
+     * Listen collection insert event.
+     *
+     * @param {string} collection
+     * @param {Array}  args
+     *
+     * @returns {Function}
+     */
     onInsert(collection, ...args) {
         return this.onEvent('insert', collection, args);
     }
 
+    /**
+     * Emit an event.
+     *
+     * @param {Array} args
+     *
+     * @returns this
+     */
     emit(...args) {
         return this.getEventsEmitter().emit(...args);
     }
 
     /**
-     * Emit an event.
+     * Emit a momentum event from eventTypes list.
      *
      * @param {string} eventKey
      * @param {Object} eventParam
@@ -784,19 +900,21 @@ class MomentumServer {
     }
 
     /**
-     * Replace id in events arguments and send it for each item.
+     * Emit event/error for each item id.
      *
-     * @param {string} command
-     * @param {string} collection
-     * @param {Array}  itemIds
+     * @param {Array}  ids
      * @param {string} method
+     * @param {string} itemEvent
+     * @param {string} collection
+     * @param {string} event
+     * @param {Object} result
      * @param {Array}  args
      */
-    emitForEachItem(command, collection, itemIds, method, args) {
-        itemIds.forEach(id => {
+    emitForEachItem(ids, method, itemEvent, collection, event, result, ...args) {
+        ids.forEach(id => {
             const itemArgs = args.slice();
             itemArgs[2] = id;
-            this[method](command, collection + ':' + id, ...itemArgs);
+            this[method](itemEvent, collection + ':' + id, event, result, ...itemArgs);
         });
     }
 
@@ -817,7 +935,7 @@ class MomentumServer {
                 const callback = method => result => {
                     const args = ['remove', collection, ids, filter, options];
                     this[method]('removeCollection', collection, 'remove', result, ...args);
-                    this.emitForEachItem('removeItem', collection, ids, method, args);
+                    this.emitForEachItem(ids, method, 'removeItem', collection, 'remove', result, ...args);
                 };
                 promise
                     .then(callback('emitEvent'))
@@ -949,7 +1067,7 @@ class MomentumServer {
                 const callback = method => result => {
                     const args = ['updateMany', collection, ids, filter, update, options];
                     this[method]('updateCollection', collection, 'updateMany', result, ...args);
-                    this.emitForEachItem('updateItem', collection, ids, method, args);
+                    this.emitForEachItem(ids, method, 'updateItem', collection, 'updateMany', result, ...args);
                 };
                 promise
                     .then(callback('emitEvent'))

@@ -339,21 +339,23 @@ describe('MomentumServer', () => {
                                     expect(yoda.name).toBe('Yoda');
                                     momentum.count('jedis', {}).then(count => {
                                         expect(count).toBe(2);
-                                        app.call('post', '/api/mm/data', {
-                                            method: 'count',
-                                            args: ['jedis']
-                                        }).then(count => {
-                                            expect(typeof count).toBe('object');
-                                            expect(count.result).toEqual(2);
-                                            app.call('post', '/api/mm/emit', {
-                                                method: 'updateMany',
-                                                args: ['jedis', {name: 'Obi-Wan'}, {$set: {name: 'Ben'}}]
-                                            }).then(() => {
-                                                momentum.find('jedis', {}).limit(2).then(jedis => {
-                                                    expect(jedis.length).toBe(2);
-                                                    var names = jedis.map(jedi => jedi.name).sort().join(', ');
-                                                    expect(names).toBe('Ben, Yoda');
-                                                    momentum.stop().then(done);
+                                        app.call('get', '/api/mm/ready').then(() => {
+                                            app.call('post', '/api/mm/data', {
+                                                method: 'count',
+                                                args: ['jedis']
+                                            }).then(count => {
+                                                expect(typeof count).toBe('object');
+                                                expect(count.result).toEqual(2);
+                                                app.call('post', '/api/mm/emit', {
+                                                    method: 'updateMany',
+                                                    args: ['jedis', {name: 'Obi-Wan'}, {$set: {name: 'Ben'}}]
+                                                }).then(() => {
+                                                    momentum.find('jedis', {}).limit(2).then(jedis => {
+                                                        expect(jedis.length).toBe(2);
+                                                        var names = jedis.map(jedi => jedi.name).sort().join(', ');
+                                                        expect(names).toBe('Ben, Yoda');
+                                                        momentum.stop().then(done);
+                                                    });
                                                 });
                                             });
                                         });
@@ -370,19 +372,21 @@ describe('MomentumServer', () => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
         momentum.start(app).then(() => {
-            app.call('post', '/api/mm/emit', {
-                method: 'insertFoo',
-                args: ['config', {a: 1}]
-            }).then(result => {
-                expect(typeof result).toBe('object');
-                expect(result.error).toBe('insertFoo method unknown');
+            app.call('get', '/api/mm/ready').then(() => {
                 app.call('post', '/api/mm/emit', {
-                    method: 'insertOne',
-                    args: []
+                    method: 'insertFoo',
+                    args: ['config', {a: 1}]
                 }).then(result => {
                     expect(typeof result).toBe('object');
-                    expect(result.error).toEqual('Arguments cannot be empty');
-                    momentum.stop().then(done);
+                    expect(result.error).toBe('insertFoo method unknown');
+                    app.call('post', '/api/mm/emit', {
+                        method: 'insertOne',
+                        args: []
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.error).toEqual('Arguments cannot be empty');
+                        momentum.stop().then(done);
+                    });
                 });
             });
         });
@@ -394,24 +398,26 @@ describe('MomentumServer', () => {
             return !args[1].voldemort;
         });
         momentum.start(app).then(() => {
-            app.call('post', '/api/mm/emit', {
-                method: 'insertOne',
-                args: ['magicians', {voldemort: 1}]
-            }).then(result => {
-                expect(typeof result).toBe('object');
-                expect(result.error).toBe('insertOne not allowed with ["magicians",{"voldemort":1}]');
-                momentum.setAuthorizationStrategy((mode, method, args) => new Promise(resolve => {
-                    setTimeout(() => {
-                        resolve(!args[1].voldemort);
-                    }, 100);
-                }));
+            app.call('get', '/api/mm/ready').then(() => {
                 app.call('post', '/api/mm/emit', {
                     method: 'insertOne',
                     args: ['magicians', {voldemort: 1}]
                 }).then(result => {
                     expect(typeof result).toBe('object');
                     expect(result.error).toBe('insertOne not allowed with ["magicians",{"voldemort":1}]');
-                    momentum.stop().then(done);
+                    momentum.setAuthorizationStrategy((mode, method, args) => new Promise(resolve => {
+                        setTimeout(() => {
+                            resolve(!args[1].voldemort);
+                        }, 100);
+                    }));
+                    app.call('post', '/api/mm/emit', {
+                        method: 'insertOne',
+                        args: ['magicians', {voldemort: 1}]
+                    }).then(result => {
+                        expect(typeof result).toBe('object');
+                        expect(result.error).toBe('insertOne not allowed with ["magicians",{"voldemort":1}]');
+                        momentum.stop().then(done);
+                    });
                 });
             });
         });
@@ -423,14 +429,24 @@ describe('MomentumServer', () => {
             momentum.remove('magicians', {name: 'Harry'}).then(() => {
                 const harry = {name: 'Harry'};
                 momentum.insertOne('magicians', harry).then(() => {
-                    app.call('post', '/api/mm/emit', {
-                        method: 'insertOne',
-                        args: ['magicians', harry]
-                    }).then(result => {
-                        expect(typeof result).toBe('object');
-                        expect(result.error.message).toContain('duplicate');
-                        momentum.remove('magicians', {name: 'Harry'}).then(() => {
-                            momentum.stop().then(done);
+                    app.call('get', '/api/mm/ready').then(() => {
+                        app.call('post', '/api/mm/emit', {
+                            method: 'insertOne',
+                            args: ['magicians', harry]
+                        }).then(result => {
+                            expect(typeof result).toBe('object');
+                            expect(result.error.message).toContain('duplicate');
+                            momentum.remove('magicians', {name: 'Harry'}).then(() => {
+                                app.token = 'wrong';
+                                app.call('post', '/api/mm/emit', {
+                                    method: 'insertOne',
+                                    args: ['magicians', harry]
+                                }).then(result => {
+                                    expect(typeof result).toBe('object');
+                                    expect(result.error).toBe('Invalid token wrong');
+                                    momentum.stop().then(done);
+                                });
+                            });
                         });
                     });
                 });
