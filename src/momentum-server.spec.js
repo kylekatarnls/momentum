@@ -435,7 +435,7 @@ describe('MomentumServer', () => {
                             args: ['magicians', harry]
                         }).then(result => {
                             expect(typeof result).toBe('object');
-                            expect(result.error.message).toContain('duplicate');
+                            expect(result.error).toContain('duplicate');
                             momentum.remove('magicians', {name: 'Harry'}).then(() => {
                                 app.token = 'wrong';
                                 app.call('post', '/api/mm/emit', {

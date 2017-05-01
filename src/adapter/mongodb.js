@@ -47,7 +47,8 @@ class MongodbAdapter extends AdapterInterface {
     }
 
     getItemId(item) {
-        return (item || {})._id;
+        const id = (item || {})._id;
+        return id ? id + '' : id;
     }
 
     getFilterFromItemId(id) {

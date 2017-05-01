@@ -549,7 +549,7 @@ class MomentumServer {
                 return;
             }
 
-            this.isAllowed('emit', method, args, request, response).then(isAllowed => {
+            this.isAllowed(mode, method, args, request, response).then(isAllowed => {
                 if (!isAllowed) {
                     end(403, {
                         error: method + ' not allowed with ' + JSON.stringify(args)
@@ -560,7 +560,9 @@ class MomentumServer {
 
                 this[method](...args)
                     .then(result => transform(result))
-                    .catch(error => ({error}))
+                    .catch(error => ({
+                        error: error + ''
+                    }))
                     .then(result => {
                         // JSON stringify and parse remove all database dynamic properties
                         end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
@@ -580,9 +582,17 @@ class MomentumServer {
                 'updateOne',
                 'updateMany',
                 'remove'
-            ], result => Object.assign({
-                result: result.result
-            }, result));
+            ], result => {
+                const data = Object.assign({
+                    result: result.result
+                }, result);
+
+                ['message', 'ops', 'connection'].forEach(key => {
+                    delete data[key];
+                });
+
+                return data;
+            });
         });
     }
 

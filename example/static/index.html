@@ -21,6 +21,9 @@
     <div id="status" class="block">Loading</div>
     <pre id="people" class="block"></pre>
     <pre id="log" class="block"></pre>
+    <div class="block">
+        <label>Config value: <input type="text" id="config" oninput="changeConfigValue()"></label>
+    </div>
     <form class="block" onsubmit="add(); return false;">
         <label>Add a person: <input type="text" id="name"></label>
         <input type="submit" value="Add">
