@@ -140,10 +140,30 @@ class MomentumServer {
      * @param {Object} request
      * @param {Object} response
      *
+     * @throws Error if authorization strategy is not a function or return a wrong value.
+     *
      * @return {Promise}
      */
     isAllowed(mode, method, args, request, response) {
-        return this.getAuthorizationStrategy()(mode, method, args, request, response);
+        const strategy = this.getAuthorizationStrategy();
+
+        if (typeof strategy !== 'function') {
+            throw new Error('Authorization strategy must be a function');
+        }
+
+        const authorization = strategy(mode, method, args, request, response);
+
+        if (typeof authorization === 'boolean') {
+            return new Promise(resolve => {
+                resolve(authorization);
+            });
+        }
+
+        if (authorization instanceof Promise) {
+            return authorization;
+        }
+
+        throw new Error('Authorization strategy must return true, false or a promise');
     }
 
     /**
@@ -502,21 +522,23 @@ class MomentumServer {
             return;
         }
 
-        if (!this.isAllowed('emit', method, args, request, response)) {
-            end(403, {
-                error: method + ' not allowed with ' + JSON.stringify(args)
-            });
+        this.isAllowed('emit', method, args, request, response).then(isAllowed => {
+            if (!isAllowed) {
+                end(403, {
+                    error: method + ' not allowed with ' + JSON.stringify(args)
+                });
 
-            return;
-        }
+                return;
+            }
 
-        this[method](...args)
-            .then(result => transform(result))
-            .catch(error => ({error}))
-            .then(result => {
-                // JSON stringify and parse remove all database dynamic properties
-                end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
-            });
+            this[method](...args)
+                .then(result => transform(result))
+                .catch(error => ({error}))
+                .then(result => {
+                    // JSON stringify and parse remove all database dynamic properties
+                    end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
+                });
+        });
     }
 
     /**
@@ -762,6 +784,23 @@ class MomentumServer {
     }
 
     /**
+     * Replace id in events arguments and send it for each item.
+     *
+     * @param {string} command
+     * @param {string} collection
+     * @param {Array}  itemIds
+     * @param {string} method
+     * @param {Array}  args
+     */
+    emitForEachItem(command, collection, itemIds, method, args) {
+        itemIds.forEach(id => {
+            const itemArgs = args.slice();
+            itemArgs[2] = id;
+            this[method](command, collection + ':' + id, ...itemArgs);
+        });
+    }
+
+    /**
      * Remove items.
      *
      * @param {string} collection
@@ -778,11 +817,7 @@ class MomentumServer {
                 const callback = method => result => {
                     const args = ['remove', collection, ids, filter, options];
                     this[method]('removeCollection', collection, 'remove', result, ...args);
-                    ids.forEach(id => {
-                        const itemArgs = args.slice();
-                        itemArgs[2] = id;
-                        this[method]('removeItem', collection + ':' + id, 'remove', result, ...itemArgs);
-                    });
+                    this.emitForEachItem('removeItem', collection, ids, method, args);
                 };
                 promise
                     .then(callback('emitEvent'))
@@ -914,11 +949,7 @@ class MomentumServer {
                 const callback = method => result => {
                     const args = ['updateMany', collection, ids, filter, update, options];
                     this[method]('updateCollection', collection, 'updateMany', result, ...args);
-                    ids.forEach(id => {
-                        const itemArgs = args.slice();
-                        itemArgs[2] = id;
-                        this[method]('updateItem', collection + ':' + id, 'updateMany', result, ...itemArgs);
-                    });
+                    this.emitForEachItem('updateItem', collection, ids, method, args);
                 };
                 promise
                     .then(callback('emitEvent'))

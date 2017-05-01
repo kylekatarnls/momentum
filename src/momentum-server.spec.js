@@ -163,6 +163,24 @@ describe('MomentumServer', () => {
                     expect(allowed).toBe(true);
                     momentum.isAllowed('b').then(allowed => {
                         expect(allowed).toBe(false);
+                        momentum.setAuthorizationStrategy(method => {
+                            return method === 'b';
+                        });
+                        momentum.isAllowed('a').then(allowed => {
+                            expect(allowed).toBe(false);
+                            momentum.isAllowed('b').then(allowed => {
+                                expect(allowed).toBe(true);
+                                momentum.setAuthorizationStrategy(() => 0);
+                                expect(() => {
+                                    momentum.isAllowed('b');
+                                }).toThrow(new Error('Authorization strategy must return true, false or a promise'));
+                                momentum.setAuthorizationStrategy(true);
+                                expect(() => {
+                                    momentum.isAllowed('b');
+                                }).toThrow(new Error('Authorization strategy must be a function'));
+                                done();
+                            });
+                        });
                         done();
                     });
                 });
@@ -382,7 +400,19 @@ describe('MomentumServer', () => {
             }).then(result => {
                 expect(typeof result).toBe('object');
                 expect(result.error).toBe('insertOne not allowed with ["magicians",{"voldemort":1}]');
-                momentum.stop().then(done);
+                momentum.setAuthorizationStrategy((mode, method, args) => new Promise(resolve => {
+                    setTimeout(() => {
+                        resolve(!args[1].voldemort);
+                    }, 100);
+                }));
+                app.call('post', '/api/mm/emit', {
+                    method: 'insertOne',
+                    args: ['magicians', {voldemort: 1}]
+                }).then(result => {
+                    expect(typeof result).toBe('object');
+                    expect(result.error).toBe('insertOne not allowed with ["magicians",{"voldemort":1}]');
+                    momentum.stop().then(done);
+                });
             });
         });
     });
@@ -711,8 +741,10 @@ describe('MomentumServer', () => {
                             momentum.updateOne('config', {type: 'main'}, {$set: {value: 5}}).then(() => {
                                 expect(updated).toBe(true);
                                 expect(removed).toBe(false);
+                                updated = false;
+                                removed = false;
                                 momentum.remove('config', {type: 'main'}).then(() => {
-                                    expect(updated).toBe(true);
+                                    expect(updated).toBe(false);
                                     expect(removed).toBe(true);
                                     expect(logs.length).toBe(3);
                                     expect(logs).toEqual(['insert', 'update-collection', 'remove-collection']);
