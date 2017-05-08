@@ -916,15 +916,16 @@ class MomentumServer {
      * @param {string} method
      * @param {string} itemEvent
      * @param {string} collection
-     * @param {string} event
-     * @param {Object} result
-     * @param {Array}  args
+     * @param {Object} event
      */
-    emitForEachItem(ids, method, itemEvent, collection, event, result, ...args) {
+    emitForEachItem(ids, method, itemEvent, collection, event) {
+        if (!method) {
+            throw new Error('no method');
+        }
         ids.forEach(id => {
-            const itemArgs = args.slice();
-            itemArgs[2] = id;
-            this[method](itemEvent, collection + ':' + id, event, result, ...itemArgs);
+            this[method](itemEvent, collection + ':' + id, Object.assign({
+                id
+            }, event));
         });
     }
 
@@ -943,9 +944,17 @@ class MomentumServer {
                 const ids = objects.map(obj => this.getItemId(obj));
                 const promise = this.callAdapter('remove', collection, filter, options);
                 const callback = method => result => {
-                    const args = ['remove', collection, ids, filter, options];
-                    this[method]('removeCollection', collection, 'remove', result, ...args);
-                    this.emitForEachItem(ids, method, 'removeItem', collection, 'remove', result, ...args);
+                    const event = {
+                        name: 'remove',
+                        collection,
+                        filter,
+                        options,
+                        result
+                    };
+                    this[method]('removeCollection', collection, Object.assign({
+                        ids
+                    }, event));
+                    this.emitForEachItem(ids, method, 'removeItem', collection, event);
                 };
                 promise
                     .then(callback('emitEvent'))
@@ -978,15 +987,16 @@ class MomentumServer {
      *
      * @param {string} method
      * @param {Array}  args
+     * @param {Object} info
      * @param {Array}  events
      *
      * @returns {Promise}
      */
-    callWithEvents(method, args, events) {
+    callWithEvents(method, args, info, events) {
         const promise = this.callAdapter(method, ...args);
         const callback = emitFunction => result => {
             events.forEach(event => {
-                emitFunction.call(this, ...event, method, result, ...args);
+                emitFunction.call(this, ...event, method, result, info);
             });
         };
         promise
@@ -1008,8 +1018,15 @@ class MomentumServer {
     insertOne(collection, document, options) {
         return this.callWithEvents(
             'insertOne', [
-                collection, document, options
-            ], [
+                collection,
+                document,
+                options
+            ], {
+                name: 'insert',
+                collection,
+                item: document,
+                options
+            }, [
                 ['insert', collection]
             ]
         );
@@ -1027,8 +1044,15 @@ class MomentumServer {
     insertMany(collection, documents, options) {
         return this.callWithEvents(
             'insertMany', [
-                collection, documents, options
-            ], [
+                collection,
+                documents,
+                options
+            ], {
+                name: 'insert',
+                collection,
+                items: documents,
+                options
+            }, [
                 ['insert', collection]
             ]
         );
@@ -1045,15 +1069,29 @@ class MomentumServer {
      * @returns {Promise}
      */
     updateOne(collection, filter, update, options) {
-        return this.findOne(collection, filter).then(obj => {
-            const id = this.getItemId(obj);
-            Object.assign(filter, this.getFilterFromItemId(id));
+        return this.findOne(collection, filter).then(item => {
+            if (!item) {
+                throw new Error(JSON.stringify([collection, filter]) + ' not found');
+            }
+
+            const id = this.getItemId(item);
             return this.callWithEvents(
                 'updateOne', [
-                    collection, filter, update, options
-                ], [
-                    ['updateCollection', collection, obj, id],
-                    ['updateItem', collection + ':' + id, obj, id]
+                    collection,
+                    filter,
+                    update,
+                    options
+                ], {
+                    name: 'update',
+                    collection,
+                    item,
+                    id,
+                    filter,
+                    update,
+                    options
+                }, [
+                    ['updateCollection', collection],
+                    ['updateItem', collection + ':' + id]
                 ]
             );
         });
@@ -1075,9 +1113,18 @@ class MomentumServer {
                 const ids = objects.map(obj => this.getItemId(obj));
                 const promise = this.callAdapter('updateMany', collection, filter, update, options);
                 const callback = method => result => {
-                    const args = ['updateMany', collection, ids, filter, update, options];
-                    this[method]('updateCollection', collection, 'updateMany', result, ...args);
-                    this.emitForEachItem(ids, method, 'updateItem', collection, 'updateMany', result, ...args);
+                    const event = {
+                        name: 'update',
+                        collection,
+                        update,
+                        filter,
+                        options,
+                        result
+                    };
+                    this[method]('updateCollection', collection, Object.assign({
+                        ids
+                    }, event));
+                    this.emitForEachItem(ids, method, 'updateItem', collection, event);
                 };
                 promise
                     .then(callback('emitEvent'))

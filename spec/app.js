@@ -33,11 +33,7 @@ function App(app, log) {
             return new Promise(resolve => {
                 resolve(...events.map(args => {
                     const newArgs = args.slice();
-                    if (newArgs[3] === 'updateOne') {
-                        newArgs[1] = Object.assign({
-                            fruit: 'banana'
-                        }, newArgs[1]);
-                    }
+                    newArgs[3].fruit = 'banana';
 
                     return newArgs;
                 }));

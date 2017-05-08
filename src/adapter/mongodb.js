@@ -1,5 +1,6 @@
 const mongodb = require('mongodb');
 const AdapterInterface = require('./interface');
+const ObjectID = mongodb.ObjectID;
 
 class MongodbAdapter extends AdapterInterface {
     constructor(url) {
@@ -51,16 +52,36 @@ class MongodbAdapter extends AdapterInterface {
         return id ? id + '' : id;
     }
 
+    formatIds(obj) {
+        if (typeof obj === 'object') {
+            if (Array.isArray(obj)) {
+                return obj.map(element => {
+                    return this.formatIds(element);
+                });
+            }
+
+            if (obj._id && !(obj._id instanceof ObjectID)) {
+                obj._id = new ObjectID(obj._id);
+            }
+        }
+
+        return obj;
+    }
+
     getFilterFromItemId(id) {
-        return {_id: id};
+        return this.formatIds({_id: id});
+    }
+
+    callOnCollection(collection, method, args) {
+        return this.getCollection(collection)[method](...this.formatIds(args));
     }
 
     count(collection, ...args) {
-        return this.getCollection(collection).count(...args);
+        return this.callOnCollection(collection, 'count', args);
     }
 
     find(collection, filter, projection, methods) {
-        const query = this.getCollection(collection).find(filter, projection);
+        const query = this.callOnCollection(collection, 'find', [filter, projection]);
         let callee;
         const promise = new Promise((resolve, reject) => {
             callee = () => {
@@ -110,27 +131,27 @@ class MongodbAdapter extends AdapterInterface {
     }
 
     findOne(collection, ...args) {
-        return this.getCollection(collection).findOne(...args);
+        return this.callOnCollection(collection, 'findOne', args);
     }
 
     insertOne(collection, ...args) {
-        return this.getCollection(collection).insertOne(...args);
+        return this.callOnCollection(collection, 'insertOne', args);
     }
 
     insertMany(collection, ...args) {
-        return this.getCollection(collection).insertMany(...args);
+        return this.callOnCollection(collection, 'insertMany', args);
     }
 
     updateOne(collection, ...args) {
-        return this.getCollection(collection).updateOne(...args);
+        return this.callOnCollection(collection, 'updateOne', args);
     }
 
     updateMany(collection, ...args) {
-        return this.getCollection(collection).updateMany(...args);
+        return this.callOnCollection(collection, 'updateMany', args);
     }
 
     remove(collection, ...args) {
-        return this.getCollection(collection).remove(...args);
+        return this.callOnCollection(collection, 'remove', args);
     }
 }
 

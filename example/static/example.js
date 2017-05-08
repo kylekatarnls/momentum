@@ -35,14 +35,15 @@ momentum.onReady(function () {
                 value: ''
             });
         }
+        configField.value = config[0].value;
         changeConfigValue = function () {
             config[0].update({
                 value: configField.value
             });
         };
-        config.onChange(function (event, item, id, method, result, collection, copy, update) {
-            if (method === 'updateOne' && item.counter === 1 && typeof update.value === 'string') {
-                configField.value = update.value;
+        config.onUpdate(function (event) {
+            if (event.item.counter === 1) {
+                configField.value = event.update.$set.value;
             }
         });
     });

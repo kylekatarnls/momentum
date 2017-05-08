@@ -743,7 +743,7 @@ describe('MomentumServer', () => {
                     expect(momentum.getItemId(config)).toBeDefined();
                     momentum.count('config', {type: 'main'}).then(count => {
                         expect(count).toBe(1);
-                        momentum.find('config', {type: 'main'}).then((configs) => {
+                        momentum.find('config', {type: 'main'}).then(configs => {
                             expect(configs.length).toBe(1);
                             expect(configs[0].value).toBe(3);
                             const id = configs[0]._id;

@@ -52,3 +52,7 @@ MomentumServer.connect(app, 'mongodb://localhost:27017/momentum').then(momentum 
     });
     opn('http://localhost:8091');
 });
+
+process.on('unhandledRejection', error => {
+    console.log(error);
+});
