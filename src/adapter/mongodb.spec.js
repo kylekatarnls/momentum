@@ -1,3 +1,4 @@
+const ObjectID = require('mongodb').ObjectID;
 const MongodbAdapter = require('./mongodb');
 
 describe('MongodbAdapter', () => {
@@ -27,7 +28,8 @@ describe('MongodbAdapter', () => {
     });
     it('should return an id from an item with getItemId', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
-        expect(mongoAdapter.getItemId({_id: 'foo'})).toBe('foo');
+        const id = new ObjectID();
+        expect(mongoAdapter.getItemId({_id: id})).toBe(id + '');
         expect(mongoAdapter.getItemId(null)).toBe(undefined);
     });
     it('should handle find failures', done => {
@@ -45,7 +47,8 @@ describe('MongodbAdapter', () => {
     });
     it('should return a filter from an item id with getFilterFromItemId', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
-        expect(mongoAdapter.getFilterFromItemId('foo')).toEqual({_id: 'foo'});
+        const id = new ObjectID();
+        expect(mongoAdapter.getFilterFromItemId(id)).toEqual({_id: id});
     });
     it('should store and get elements', done => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');

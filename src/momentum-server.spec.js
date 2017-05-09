@@ -213,8 +213,8 @@ describe('MomentumServer', () => {
                     expect(typeof result.events[0]).toBe('object');
                     expect(typeof result.events[0].args).toBe('object');
                     expect(result.events[0].args[1]).toBe('insertOne');
-                    expect(typeof result.events[0].args[4]).toBe('object');
-                    expect(result.events[0].args[4].a).toBe(1);
+                    expect(typeof result.events[0].args[3]).toBe('object');
+                    expect(result.events[0].args[3].item.a).toBe(1);
                     momentum.stop().then(done);
                 });
                 setTimeout(() => {
@@ -284,13 +284,13 @@ describe('MomentumServer', () => {
                     expect(typeof result.events[0].args).toBe('object');
                     expect(result.events.length).toBe(2);
                     expect(result.events[0].args[1]).toBe('insertOne');
-                    expect(typeof result.events[0].args[4]).toBe('object');
-                    expect(result.events[0].args[4].a).toBe(1);
+                    expect(typeof result.events[0].args[3]).toBe('object');
+                    expect(result.events[0].args[3].item.a).toBe(1);
                     expect(typeof result.events[1]).toBe('object');
                     expect(typeof result.events[1].args).toBe('object');
                     expect(result.events[1].args[1]).toBe('insertOne');
-                    expect(typeof result.events[1].args[4]).toBe('object');
-                    expect(result.events[1].args[4].a).toBe(2);
+                    expect(typeof result.events[1].args[3]).toBe('object');
+                    expect(result.events[1].args[3].item.a).toBe(2);
                     momentum.stop().then(done);
                 });
                 setTimeout(() => {
@@ -646,7 +646,7 @@ describe('MomentumServer', () => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.addFilter('foo', (...args) => {
             return new Promise(resolve => {
-                args[0][4].a++;
+                args[0][3].item.a++;
 
                 resolve(...args);
             });
@@ -664,7 +664,7 @@ describe('MomentumServer', () => {
                     }).then(result => {
                         expect(result.error).toBe('Missing collection name');
                         app.call('get', '/api/mm/on').then(result => {
-                            expect(result.events[0].args[4].a).toBe(2);
+                            expect(result.events[0].args[3].item.a).toBe(2);
                             momentum.stop().then(done);
                         });
                         setTimeout(() => {
