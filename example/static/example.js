@@ -10,11 +10,12 @@ var start = function () {
     stop();
     stop = momentum.on(function (events) {
         document.getElementById('log').innerHTML += events.map(function (event) {
-            var id = event.args.pop();
-            if (event.args[3] === 'people') {
-                people.push(event.args[4].name);
+            var id = event.args[4];
+            if (event.args[3].collection === 'people') {
+                var name = event.args[3].item.name;
+                people.push(name);
 
-                return '<span title="' + id + '">' + event.args[4].name + ' added</span>\n';
+                return '<span title="' + id + '">' + name + ' added</span>\n';
             }
 
             return '';
