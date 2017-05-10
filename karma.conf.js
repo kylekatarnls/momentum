@@ -19,9 +19,19 @@ module.exports = config => {
         ],
         concurrency: Infinity,
         reporters: [
+            'jasmine-diff',
             'progress',
-            'coverage'
+            //'coverage'
         ],
+        jasmineDiffReporter: {
+            pretty: true,
+            color: {
+                expectedBg: 'red',
+                expectedWhitespaceBg: 'red',
+                actualBg: 'green',
+                actualWhitespaceBg: 'green'
+            }
+        },
         preprocessors: {
             'lib/**/*.js': ['coverage']
         },

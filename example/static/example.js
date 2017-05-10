@@ -36,16 +36,15 @@ momentum.onReady(function () {
                 value: ''
             });
         }
-        configField.value = config[0].value;
+        var firstCounter = config[0];
+        configField.value = firstCounter.value;
         changeConfigValue = function () {
-            config[0].update({
+            firstCounter.set({
                 value: configField.value
             });
         };
-        config.onUpdate(function (event) {
-            if (event.item.counter === 1) {
-                configField.value = event.update.$set.value;
-            }
+        firstCounter.onUpdate(function (event) {
+            configField.value = event.update.$set.value;
         });
     });
     document.getElementById('status').innerHTML = 'ready';

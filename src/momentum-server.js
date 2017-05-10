@@ -558,15 +558,14 @@ class MomentumServer {
                     return;
                 }
 
-                this[method](...args)
-                    .then(result => transform(result))
-                    .catch(error => ({
-                        error: error + ''
-                    }))
-                    .then(result => {
-                        // JSON stringify and parse remove all database dynamic properties
-                        end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
-                    });
+                return this[method](...args).then(result => transform(result));
+            })
+            .catch(error => ({
+                error: error + ''
+            }))
+            .then(result => {
+                // JSON stringify and parse remove all database dynamic properties
+                end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
             });
         });
     }
@@ -1007,6 +1006,37 @@ class MomentumServer {
     }
 
     /**
+     * Insert one or many item(s).
+     *
+     * @param {string}       collection
+     * @param {Object|Array} document
+     * @param {Object}       options
+     * @param {string}       type
+     *
+     * @returns {Promise}
+     */
+    insert(collection, document, options, type) {
+        if (!type) {
+            type = document instanceof Array ? 'insertMany' : 'insertOne';
+        }
+
+        return this.callWithEvents(
+            type, [
+                collection,
+                document,
+                options
+            ], {
+                name: 'insert',
+                collection,
+                [type === 'insertMany' ? 'items' : 'item']: document,
+                options
+            }, [
+                ['insert', collection]
+            ]
+        );
+    }
+
+    /**
      * Insert one item.
      *
      * @param {string} collection
@@ -1016,20 +1046,7 @@ class MomentumServer {
      * @returns {Promise}
      */
     insertOne(collection, document, options) {
-        return this.callWithEvents(
-            'insertOne', [
-                collection,
-                document,
-                options
-            ], {
-                name: 'insert',
-                collection,
-                item: document,
-                options
-            }, [
-                ['insert', collection]
-            ]
-        );
+        return this.insert(collection, document, options, 'insertOne');
     }
 
     /**
@@ -1042,20 +1059,7 @@ class MomentumServer {
      * @returns {Promise}
      */
     insertMany(collection, documents, options) {
-        return this.callWithEvents(
-            'insertMany', [
-                collection,
-                documents,
-                options
-            ], {
-                name: 'insert',
-                collection,
-                items: documents,
-                options
-            }, [
-                ['insert', collection]
-            ]
-        );
+        return this.insert(collection, documents, options, 'insertMany');
     }
 
     /**

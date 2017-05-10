@@ -12,7 +12,7 @@ describe('MongodbAdapter', () => {
     });
     it('should throw an exception if collection name is wrong', () => {
         const mongoAdapter = new MongodbAdapter('mongodb://localhost:27017/momentum');
-        expect(() => mongoAdapter.getCollection(null)).toThrow(new Error('Collection name must be a non-empty string'));
+        expect(() => mongoAdapter.getCollection(null)).toThrowError(/^Collection name must be a non-empty string/);
     });
     it('should reject if start failed', done => {
         const mongoAdapter = new MongodbAdapter('mongodb://999.999.999.999:999/momentum');

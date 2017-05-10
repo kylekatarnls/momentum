@@ -83,8 +83,9 @@ describe('MomentumServer', () => {
                 'animals',
                 'config',
                 'counters',
-                'magicans',
+                'insertions',
                 'jedis',
+                'magicans',
                 'people',
                 'table',
                 'unitTests'
@@ -769,6 +770,19 @@ describe('MomentumServer', () => {
                                 });
                             });
                         });
+                    });
+                });
+            });
+        });
+    });
+    it('should handle dynamic insertion modes', done => {
+        MomentumServer.connect(8092, 'mongodb://localhost:27017/momentum').then(momentum => {
+            momentum.insert('insertions', {i: 'a'}).then(() => {
+                momentum.insert('insertions', [{i: 'b'}, {i: 'c'}]).then(() => {
+                    momentum.find('insertions').then(insertions => {
+                        expect(insertions.length).toBe(3);
+                        expect(insertions.map(i => i.i).join(',')).toBe('a,b,c');
+                        momentum.stop().then(done);
                     });
                 });
             });

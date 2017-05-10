@@ -14,7 +14,7 @@ class MongodbAdapter extends AdapterInterface {
 
     getCollection(name) {
         if (!name || !name.length || typeof name !== 'string') {
-            throw new Error('Collection name must be a non-empty string');
+            throw new Error('Collection name must be a non-empty string\n' + (new Error()).stack);
         }
 
         return this.db.collection(name);
