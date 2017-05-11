@@ -21,10 +21,11 @@ module.exports = config => {
         reporters: [
             'jasmine-diff',
             'progress',
-            //'coverage'
+            'coverage'
         ],
         jasmineDiffReporter: {
-            pretty: true,
+            pretty: 4,
+            multiline: true,
             color: {
                 expectedBg: 'red',
                 expectedWhitespaceBg: 'red',

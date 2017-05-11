@@ -8,18 +8,14 @@ var changeConfigValue = function () {};
 var stop = function () {};
 var start = function () {
     stop();
-    stop = momentum.on(function (events) {
-        document.getElementById('log').innerHTML += events.map(function (event) {
-            var id = event.args[4];
-            if (event.args[3].collection === 'people') {
-                var name = event.args[3].item.name;
-                people.push(name);
+    stop = momentum.on(function (event) {
+        var id = event.args[4];
+        if (event.args[3].collection === 'people') {
+            var name = event.args[3].item.name;
+            people.push(name);
 
-                return '<span title="' + id + '">' + name + ' added</span>\n';
-            }
-
-            return '';
-        }).join('');
+            document.getElementById('log').innerHTML += '<span title="' + id + '">' + name + ' added</span>\n';
+        }
         setPeople(people);
     });
 };
