@@ -77,26 +77,34 @@ class FoobarAdapter extends AdapterInterface {
 
 describe('MomentumServer', () => {
     afterAll(done => {
-        MomentumServer.connect(emulateApp(), 'mongodb://localhost:27017/momentum').then(momentum => {
-            const collections = [
-                'aatokens',
-                'animals',
-                'config',
-                'cookies',
-                'counters',
-                'insertions',
-                'jedis',
-                'magicans',
-                'people',
-                'table',
-                'unitTests'
-            ];
-            let count = collections.length;
-            collections.forEach(collection => {
-                momentum.remove(collection, {}).then(() => {
-                    if (--count < 1) {
-                        momentum.stop().then(done);
-                    }
+        const dbs = ['momentum', 'restricted-momentum', 'clone-momentum'];
+        let count = 0;
+        dbs.forEach(db => {
+            MomentumServer.connect(emulateApp(), 'mongodb://localhost:27017/' + db).then(momentum => {
+                const collections = [
+                    'aatokens',
+                    'animals',
+                    'config',
+                    'cookies',
+                    'counters',
+                    'insertions',
+                    'jedis',
+                    'magicans',
+                    'people',
+                    'table',
+                    'unitTests'
+                ];
+                let count = collections.length;
+                collections.forEach(collection => {
+                    momentum.remove(collection, {}).then(() => {
+                        if (--count < 1) {
+                            momentum.stop().then(() => {
+                                if (++count === dbs.length) {
+                                    done();
+                                }
+                            });
+                        }
+                    });
                 });
             });
         });

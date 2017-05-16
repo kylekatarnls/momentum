@@ -12,14 +12,14 @@ module.exports = config => {
         ],
         colors: true,
         singleRun: true,
-        logLevel: config.LOG_INFO,
+        logLevel: config.LOG_WARN,
         browsers: [
             'Chrome',
             'PhantomJS'
         ],
         concurrency: Infinity,
         reporters: [
-            'progress',
+            'spec',
             'coverage'
         ],
         preprocessors: {
@@ -42,6 +42,10 @@ module.exports = config => {
                     type: 'lcovonly',
                     subdir: './',
                     file: 'coverage-front.info'
+                },
+                {
+                    type: 'lcov',
+                    subdir: '.'
                 }
             ]
         },

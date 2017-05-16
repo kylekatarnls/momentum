@@ -7,7 +7,7 @@
     "preinstall": "npm prune",
     "pretest": "npm install",
     "test-client": "node ./node_modules/karma/bin/karma start",
-    "karma": "node ./node_modules/karma/bin/karma start --reporters progress",
+    "karma": "node ./node_modules/karma/bin/karma start --reporters spec",
     "test-server": "istanbul cover ./node_modules/jasmine/bin/jasmine.js",
     "jasmine": "node ./node_modules/jasmine/bin/jasmine.js",
     "test": "npm run test-client && npm run test-server",
@@ -51,6 +51,7 @@
     "karma-express-http-server": "0.0.1",
     "karma-jasmine": "^1.1.0",
     "karma-phantomjs-launcher": "^1.0.2",
+    "karma-spec-reporter": "0.0.31",
     "opn": "^4.0.2",
     "sinon": "^1.17.7"
   }
