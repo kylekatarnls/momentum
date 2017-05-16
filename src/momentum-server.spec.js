@@ -82,6 +82,7 @@ describe('MomentumServer', () => {
                 'aatokens',
                 'animals',
                 'config',
+                'cookies',
                 'counters',
                 'insertions',
                 'jedis',
@@ -373,6 +374,9 @@ describe('MomentumServer', () => {
     it('should handle errors on /emit route', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
+        expect(() => {
+            momentum.emitForEachItem();
+        }).toThrowError();
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(() => {
                 app.call('post', '/api/mm/emit', {
@@ -755,6 +759,9 @@ describe('MomentumServer', () => {
                             });
                             momentum.onItemRemove('config', id, () => {
                                 removed = true;
+                            });
+                            momentum.updateOne('foobar', {bar: 'foo'}).catch(error => {
+                                expect(error + '').toContain(JSON.stringify(['foobar', {bar: 'foo'}]) + ' not found');
                             });
                             momentum.updateOne('config', {type: 'main'}, {$set: {value: 5}}).then(() => {
                                 expect(updated).toBe(true);
