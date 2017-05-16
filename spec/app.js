@@ -50,7 +50,7 @@ function App(app, log) {
         log.info('Restricted server connected.');
         restrictedMomentum.invalidateTokens({ip: {$in: ['phjs', '::1', '127.0.0.1']}});
     });
-    ['clone1', 'clone2', 'clone3', 'clone4'].forEach(prefix => {
+    ['clone1', 'clone2', 'clone3', 'clone4', 'clone5'].forEach(prefix => {
         const restrictedMomentum = new MomentumServer('mongodb://localhost:27017/restricted-momentum');
         restrictedMomentum.setUrlPrefix('/' + prefix + '/');
         restrictedMomentum.start(app).then(() => {
