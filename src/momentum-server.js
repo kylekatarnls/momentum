@@ -564,8 +564,10 @@ class MomentumServer {
                 error: error + ''
             }))
             .then(result => {
-                // JSON stringify and parse remove all database dynamic properties
-                end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
+                if (result) {
+                    // JSON stringify and parse remove all database dynamic properties
+                    end(result.error ? 500 : 200, JSON.parse(JSON.stringify(result)));
+                }
             });
         });
     }
