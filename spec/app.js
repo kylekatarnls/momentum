@@ -61,6 +61,7 @@ function App(app, log) {
         startClone('clone' + i);
         startClone('clone-ph' + i);
     }
+    startClone('multi');
 }
 
 module.exports = App;

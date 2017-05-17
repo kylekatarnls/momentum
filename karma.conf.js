@@ -12,7 +12,7 @@ module.exports = config => {
         ],
         colors: true,
         singleRun: true,
-        logLevel: config.LOG_WARN,
+        logLevel: config.LOG_DEBUG,
         browsers: [
             'Chrome',
             'PhantomJS'

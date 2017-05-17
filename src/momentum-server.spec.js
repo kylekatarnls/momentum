@@ -87,6 +87,7 @@ describe('MomentumServer', () => {
                     'config',
                     'cookies',
                     'counters',
+                    'documents',
                     'insertions',
                     'jedis',
                     'magicans',
