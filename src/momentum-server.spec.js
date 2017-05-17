@@ -78,7 +78,7 @@ class FoobarAdapter extends AdapterInterface {
 describe('MomentumServer', () => {
     afterAll(done => {
         const dbs = ['momentum', 'restricted-momentum', 'clone-momentum'];
-        let count = 0;
+        let dbCount = dbs.length;
         dbs.forEach(db => {
             MomentumServer.connect(emulateApp(), 'mongodb://localhost:27017/' + db).then(momentum => {
                 const collections = [
@@ -94,12 +94,12 @@ describe('MomentumServer', () => {
                     'table',
                     'unitTests'
                 ];
-                let count = collections.length;
+                let collectionCount = collections.length;
                 collections.forEach(collection => {
                     momentum.remove(collection, {}).then(() => {
-                        if (--count < 1) {
+                        if (--collectionCount < 1) {
                             momentum.stop().then(() => {
-                                if (++count === dbs.length) {
+                                if (--dbCount < 1) {
                                     done();
                                 }
                             });
