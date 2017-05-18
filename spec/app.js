@@ -33,7 +33,7 @@ function App(app, log) {
             return new Promise(resolve => {
                 resolve(...events.map(args => {
                     const newArgs = args.slice();
-                    newArgs[3].fruit = 'banana';
+                    newArgs[1].fruit = 'banana';
 
                     return newArgs;
                 }));
