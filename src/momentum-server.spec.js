@@ -77,26 +77,35 @@ class FoobarAdapter extends AdapterInterface {
 
 describe('MomentumServer', () => {
     afterAll(done => {
-        MomentumServer.connect(emulateApp(), 'mongodb://localhost:27017/momentum').then(momentum => {
-            const collections = [
-                'aatokens',
-                'animals',
-                'config',
-                'cookies',
-                'counters',
-                'insertions',
-                'jedis',
-                'magicans',
-                'people',
-                'table',
-                'unitTests'
-            ];
-            let count = collections.length;
-            collections.forEach(collection => {
-                momentum.remove(collection, {}).then(() => {
-                    if (--count < 1) {
-                        momentum.stop().then(done);
-                    }
+        const dbs = ['momentum', 'restricted-momentum', 'clone-momentum'];
+        let dbCount = dbs.length;
+        dbs.forEach(db => {
+            MomentumServer.connect(emulateApp(), 'mongodb://localhost:27017/' + db).then(momentum => {
+                const collections = [
+                    'aatokens',
+                    'animals',
+                    'config',
+                    'cookies',
+                    'counters',
+                    'documents',
+                    'insertions',
+                    'jedis',
+                    'magicans',
+                    'people',
+                    'table',
+                    'unitTests'
+                ];
+                let collectionCount = collections.length;
+                collections.forEach(collection => {
+                    momentum.remove(collection, {}).then(() => {
+                        if (--collectionCount < 1) {
+                            momentum.stop().then(() => {
+                                if (--dbCount < 1) {
+                                    done();
+                                }
+                            });
+                        }
+                    });
                 });
             });
         });
@@ -214,9 +223,9 @@ describe('MomentumServer', () => {
                     expect(typeof result.events).toBe('object');
                     expect(typeof result.events[0]).toBe('object');
                     expect(typeof result.events[0].args).toBe('object');
-                    expect(result.events[0].args[1]).toBe('insertOne');
-                    expect(typeof result.events[0].args[3]).toBe('object');
-                    expect(result.events[0].args[3].item.a).toBe(1);
+                    expect(result.events[0].args[2]).toBe('insertOne');
+                    expect(typeof result.events[0].args[1]).toBe('object');
+                    expect(result.events[0].args[1].item.a).toBe(1);
                     momentum.stop().then(done);
                 });
                 setTimeout(() => {
@@ -285,14 +294,14 @@ describe('MomentumServer', () => {
                     expect(typeof result.events[0]).toBe('object');
                     expect(typeof result.events[0].args).toBe('object');
                     expect(result.events.length).toBe(2);
-                    expect(result.events[0].args[1]).toBe('insertOne');
-                    expect(typeof result.events[0].args[3]).toBe('object');
-                    expect(result.events[0].args[3].item.a).toBe(1);
+                    expect(result.events[0].args[2]).toBe('insertOne');
+                    expect(typeof result.events[0].args[1]).toBe('object');
+                    expect(result.events[0].args[1].item.a).toBe(1);
                     expect(typeof result.events[1]).toBe('object');
                     expect(typeof result.events[1].args).toBe('object');
-                    expect(result.events[1].args[1]).toBe('insertOne');
-                    expect(typeof result.events[1].args[3]).toBe('object');
-                    expect(result.events[1].args[3].item.a).toBe(2);
+                    expect(result.events[1].args[2]).toBe('insertOne');
+                    expect(typeof result.events[1].args[1]).toBe('object');
+                    expect(result.events[1].args[1].item.a).toBe(2);
                     momentum.stop().then(done);
                 });
                 setTimeout(() => {
@@ -651,7 +660,7 @@ describe('MomentumServer', () => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         momentum.addFilter('foo', (...args) => {
             return new Promise(resolve => {
-                args[0][3].item.a++;
+                args[0][1].item.a++;
 
                 resolve(...args);
             });
@@ -669,7 +678,7 @@ describe('MomentumServer', () => {
                     }).then(result => {
                         expect(result.error).toBe('Missing collection name');
                         app.call('get', '/api/mm/on').then(result => {
-                            expect(result.events[0].args[3].item.a).toBe(2);
+                            expect(result.events[0].args[1].item.a).toBe(2);
                             momentum.stop().then(done);
                         });
                         setTimeout(() => {

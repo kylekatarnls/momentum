@@ -33,7 +33,7 @@ function App(app, log) {
             return new Promise(resolve => {
                 resolve(...events.map(args => {
                     const newArgs = args.slice();
-                    newArgs[3].fruit = 'banana';
+                    newArgs[1].fruit = 'banana';
 
                     return newArgs;
                 }));
@@ -50,13 +50,18 @@ function App(app, log) {
         log.info('Restricted server connected.');
         restrictedMomentum.invalidateTokens({ip: {$in: ['phjs', '::1', '127.0.0.1']}});
     });
-    ['clone1', 'clone2', 'clone3', 'clone4', 'clone5'].forEach(prefix => {
-        const restrictedMomentum = new MomentumServer('mongodb://localhost:27017/restricted-momentum');
+    const startClone = prefix => {
+        const restrictedMomentum = new MomentumServer('mongodb://localhost:27017/clone-momentum');
         restrictedMomentum.setUrlPrefix('/' + prefix + '/');
         restrictedMomentum.start(app).then(() => {
             log.info(prefix + ' server connected.');
-        })
-    });
+        });
+    };
+    for (let i = 1; i <= 7; i++) {
+        startClone('clone' + i);
+        startClone('clone-ph' + i);
+    }
+    startClone('multi');
 }
 
 module.exports = App;

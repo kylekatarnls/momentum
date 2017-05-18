@@ -997,7 +997,7 @@ class MomentumServer {
         const promise = this.callAdapter(method, ...args);
         const callback = emitFunction => result => {
             events.forEach(event => {
-                emitFunction.call(this, ...event, method, result, info);
+                emitFunction.call(this, ...event, info, method, result);
             });
         };
         promise
