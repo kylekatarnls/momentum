@@ -6,11 +6,11 @@
   "scripts": {
     "preinstall": "npm prune",
     "pretest": "npm install",
-    "test-client": "node ./node_modules/karma/bin/karma start",
-    "karma": "node ./node_modules/karma/bin/karma start --reporters spec",
+    "test-client": "node ./spec/cleanup.js && node ./node_modules/karma/bin/karma start && node ./spec/cleanup.js",
+    "karma": "node ./spec/cleanup.js && node ./node_modules/karma/bin/karma start --reporters spec && node ./spec/cleanup.js",
     "test-server": "istanbul cover ./node_modules/jasmine/bin/jasmine.js",
     "jasmine": "node ./node_modules/jasmine/bin/jasmine.js",
-    "test": "npm run test-client && npm run test-server",
+    "test": "npm run test-client && npm run test-server && node ./spec/cleanup.js",
     "preexample": "npm install",
     "example": "node ./example/index.js"
   },
