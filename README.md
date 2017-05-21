@@ -1,5 +1,5 @@
 # momentum
-[![npm version](https://badge.fury.io/js/momentum.svg)](https://badge.fury.io/js/momentum)
+[![npm version](https://badge.fury.io/js/momentum-js.svg)](https://badge.fury.io/js/momentum-js)
 [![Build Status](https://travis-ci.org/kylekatarnls/momentum.svg?branch=master)](https://travis-ci.org/kylekatarnls/momentum)
 [![Code Climate](https://codeclimate.com/github/kylekatarnls/momentum/badges/gpa.svg)](https://codeclimate.com/github/kylekatarnls/momentum)
 [![Test Coverage](https://codeclimate.com/github/kylekatarnls/momentum/badges/coverage.svg)](https://codeclimate.com/github/kylekatarnls/momentum/coverage)
