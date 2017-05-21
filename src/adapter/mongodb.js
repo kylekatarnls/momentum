@@ -5,11 +5,11 @@ const ObjectID = mongodb.ObjectID;
 class MongodbAdapter extends AdapterInterface {
     constructor(url) {
         super();
-        this.url = url;
+        this.url = url.replace(/^([^:\/]*):([^/])/, '$1://$2');
     }
 
     static isCompatible(connector) {
-        return connector.indexOf('mongodb://') === 0;
+        return connector.indexOf('mongodb:') === 0;
     }
 
     getCollection(name) {
