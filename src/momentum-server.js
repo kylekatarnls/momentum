@@ -2,6 +2,8 @@ const net = require('net');
 const express = require('express');
 const bodyParser = require('body-parser');
 const randomString = require('randomstring');
+const fs = require('fs');
+const uglify = require('uglify-js');
 const mondogdbAdapter = require('./adapter/mongodb');
 const MomentumEventEmitter = require('./event/emitter');
 const adapters = {
@@ -635,7 +637,22 @@ class MomentumServer {
         this.addListenStopRoute();
         this.addEmitRoute();
         this.initializeEventsEmitter();
-        const start = this.startAdapter();
+        const start = new Promise(resolve => {
+            let startAdapter, broadcastLibrary;
+            const end = () => {
+                if (startAdapter && broadcastLibrary) {
+                    resolve();
+                }
+            };
+            this.startAdapter().then(() => {
+                startAdapter = true;
+                end();
+            });
+            this.broadcastLibrary().then(() => {
+                broadcastLibrary = true;
+                end();
+            });
+        });
         start.then(() => {
             this.isReady = true;
             this.readyPromises.forEach(promise => {
@@ -645,6 +662,37 @@ class MomentumServer {
         });
 
         return start;
+    }
+
+    /**
+     * Minify and broadcast the library on /momentum.js route.
+     */
+    broadcastLibrary() {
+        return new Promise(resolve => {
+            fs.readFile(__dirname + '/../lib/momentum.js', 'utf8', (err, data) => {
+                const result = uglify.minify({
+                    'momentum.js': data
+                }, {
+                    sourceMap: {
+                        filename: 'momentum.js',
+                        url: './momentum.js.map'
+                    }
+                });
+                this.addRoute('momentum.js', (request, response) => {
+                    response.set('Content-Type', 'application/javascript; charset=utf-8');
+                    response.send(data);
+                });
+                this.addRoute('momentum.min.js', (request, response) => {
+                    response.set('Content-Type', 'application/javascript; charset=utf-8');
+                    response.send(result.code);
+                });
+                this.addRoute('momentum.js.map', (request, response) => {
+                    response.set('Content-Type', 'application/json; charset=utf-8');
+                    response.send(result.map);
+                });
+                resolve();
+            });
+        });
     }
 
     /**

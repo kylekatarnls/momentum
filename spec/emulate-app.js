@@ -18,6 +18,19 @@ const emulateApp = () => ({
 
         return new Promise(resolve => {
             this.lastResponse = {
+                data: {},
+                set(key, value) {
+                    this.data[key] = value;
+                },
+                get(key) {
+                    return this.data[key];
+                },
+                send(content) {
+                    this.set('content', content);
+                    resolve(content);
+
+                    return this;
+                },
                 status() {
                     return this;
                 },

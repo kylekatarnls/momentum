@@ -130,6 +130,25 @@ describe('MomentumServer', () => {
 
         expect(momentum.linkedApp.a).toBe(42);
     });
+    it('should listen the /momentum.*js* routes', done => {
+        const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        const app = emulateApp();
+        momentum.start(app).then(() => {
+            app.call('get', '/api/mm/momentum.min.js').then(result => {
+                expect(result).toContain('Momentum');
+                expect(app.getLastResponse().get('Content-Type')).toBe('application/javascript; charset=utf-8');
+                app.call('get', '/api/mm/momentum.js').then(result => {
+                    expect(result).toContain('Momentum');
+                    expect(app.getLastResponse().get('Content-Type')).toBe('application/javascript; charset=utf-8');
+                    app.call('get', '/api/mm/momentum.js.map').then(result => {
+                        expect(result).toContain('momentum.js');
+                        expect(app.getLastResponse().get('Content-Type')).toBe('application/json; charset=utf-8');
+                        momentum.stop().then(done);
+                    });
+                });
+            });
+        });
+    });
     it('should listen the /on route', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
         const app = emulateApp();
