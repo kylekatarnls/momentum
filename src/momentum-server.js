@@ -45,6 +45,7 @@ class MomentumServer {
         this.readyPromises = [];
         this.filters = {};
         this.options = {
+            groupingDelay: 200,
             maxTokensPerIp: 16,
             maxEventsListeners: 131072,
             timeOut: 120000,
@@ -384,7 +385,7 @@ class MomentumServer {
                                     this.remove(eventsCollection, this.getFilterFromItemId({$in: ids}));
                                 }
                             }).catch(off);
-                        }, 200);
+                        }, this.options.groupingDelay);
                     }
                 });
             });

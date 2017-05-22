@@ -221,6 +221,7 @@ describe('MomentumServer', () => {
     });
     it('should group /on calls when close in time', done => {
         const momentum = new MomentumServer('mongodb://localhost:27017/momentum');
+        momentum.options.groupingDelay = 1000;
         const app = emulateApp();
         momentum.start(app).then(() => {
             app.call('get', '/api/mm/ready').then(result => {
