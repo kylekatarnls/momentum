@@ -3,11 +3,6 @@ language: node_js
 node_js:
   - "7"
 
-before_install:
-  - export CHROME_BIN=chromium-browser
-  - export DISPLAY=:99.0
-  - sh -e /etc/init.d/xvfb start
-
 after_success:
   - npm install -g codeclimate-test-reporter lcov-result-merger
   - lcov-result-merger 'coverage/*.info' coverage.info
@@ -19,6 +14,7 @@ services:
 addons:
   code_climate:
     repo_token: 456ad90bfb6a7127443d64b5100c75db696e939578004596a8adab9c9c15a1e5
+  chrome: stable
 
 notifications:
   slack: momentum-js:6TmOdr6hT41DKexW452oc4L7
