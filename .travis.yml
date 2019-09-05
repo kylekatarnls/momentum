@@ -18,7 +18,6 @@ services:
 addons:
   code_climate:
     repo_token: 456ad90bfb6a7127443d64b5100c75db696e939578004596a8adab9c9c15a1e5
-  chrome: stable
 
 notifications:
   slack: momentum-js:6TmOdr6hT41DKexW452oc4L7
