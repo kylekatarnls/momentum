@@ -25,12 +25,6 @@ module.exports = config => {
         preprocessors: {
             'lib/**/*.js': ['coverage']
         },
-        customLaunchers: {
-            ChromeTravisCI: {
-                base: 'Chrome',
-                flags: ['--no-sandbox']
-            }
-        },
         coverageReporter: {
             dir: 'coverage/',
             reporters: [
@@ -59,7 +53,6 @@ module.exports = config => {
 
     if (process.env.TRAVIS) {
         params.browsers = [
-            'ChromeTravisCI',
             'PhantomJS'
         ];
     }
